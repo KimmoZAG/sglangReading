@@ -116,7 +116,7 @@ flowchart TD
 
 5. **`temperature` 退化为贪婪的副作用**：`__post_init__` 把 `0<=temperature<1e-6` 改写为 `temperature=1.0, top_k=1`（`sampling_params.py:144-L147`）。这意味着「极低温度」用户会意外得到完全贪婪、且 `is_all_greedy` 为 True 走快速路径——若同时设置了 top_p，top_p 在该请求内被忽略。
 
-6. **batch 合并/过滤必须保持 tensor 长度一致**：`merge_batch` 明确要求先处理 `logit_bias`（其形状依赖 batch size），再处理 `temperatures` 等（`sampling_batch_info.py:414-L443`）；`__len__` 基于 `temperatures` 张量，所以任何 `len(self)`/`len(other)` 的读取都须在合并 `temperatures` 之前完成，否则 batch size 计算会错位（见 `sampling_batch_info.py:430-L432` 注释）。
+6. **batch 合并/过滤必须保持 tensor 长度一致**：`merge_batch` 明确要求先处理 `logit_bias`（其形状依赖 batch size），再处理 `temperatures` 等（`sampling_batch_info.py:388-L443`）；`__len__`（`sampling_batch_info.py:236`）基于 `temperatures` 张量，所以任何 `len(self)`/`len(other)` 的读取都须在合并 `temperatures` 之前完成，否则 batch size 计算会错位（见 `sampling_batch_info.py:428-L445` 中 merge_batch 内的注释）。
 
 7. **`n` 参数的处理不确定**：`SamplingParams.n`（`sampling_params.py:70`）在采样路径中未被展开为多条序列，引擎层面似乎不支持单请求多序列。见下方 OPEN。
 

@@ -146,7 +146,7 @@ metadata 没有统一的基类约束，是后端内部自定义的 dataclass。F
 
 **4) 工厂实例化**：`_build_full_attention_backend_from_str` 校验名字在 `ATTENTION_BACKENDS` 中，并以 `ATTENTION_BACKENDS[backend_str](model_runner)` 调用工厂（`attention_backend_setup.py:L249-L255`）。注意：工厂拿到的是 `model_runner`，其 `prefill_attention_backend_str`/`decode_attention_backend_str` 此时已被设置，因此后端构造时即可读取（FlashInfer 在 `__init__` 中读取 `model_runner.prefill_attention_backend_str` 做 KV 访问校验，见 `flashinfer_backend.py:L327-L333`）。
 
-**5) 模型级包装与 hybrid**：若 `prefill != decode`，则 `_build_resolved_backend` 会用 `HybridAttnBackend` 把两个完整后端组合起来（`attention_backend_setup.py:L191-L222`）；草稿（draft）worker 则用 `draft_attention_backend` 统一覆盖 prefill/decode（L167-L174）。此外 `attn_backend_wrapper`（attention_registry.py:L309-L494）会为混合架构（GDN、Mamba2、KDA 等）再包一层线性/稀疏侧后端。
+**5) 模型级包装与 hybrid**：若 `prefill != decode`，则 `_build_resolved_backend` 会用 `HybridAttnBackend` 把两个完整后端组合起来（`python/sglang/srt/model_executor/model_runner_components/attention_backend_setup.py:179-L222`）；草稿（draft）worker 则用 `draft_attention_backend` 统一覆盖 prefill/decode（L167-L174）。此外 `attn_backend_wrapper`（attention_registry.py:L309-L494）会为混合架构（GDN、Mamba2、KDA 等）再包一层线性/稀疏侧后端。
 
 选择流程时序如下：
 
@@ -196,7 +196,7 @@ sequenceDiagram
 
 5. **（可选）能力开关**：在 `DummyAttnBackend` 上按需要覆盖类属性 `needs_cpu_seq_lens`、`extend_dummy_seqs_capped_by_req_pool`、`supports_full_cuda_graph_chunked_prefix` 等（base_attn_backend.py:L114-L143），避免被错误地纳入 CUDA Graph / 长上下文路径。
 
-6. **启动验证**：用 `--attention-backend dummy`（或 `--prefill-attention-backend dummy --decode-attention-backend dummy`）启动。`ModelRunner.init_attention_backends` 会解析并实例化（model_runner.py:L932-L952）；若 prefill≠decode，会自动套 `HybridAttnBackend`（attention_backend_setup.py:L191-L222）。
+6. **启动验证**：用 `--attention-backend dummy`（或 `--prefill-attention-backend dummy --decode-attention-backend dummy`）启动。`ModelRunner.init_attention_backends` 会解析并实例化（model_runner.py:L932-L952）；若 prefill≠decode，会自动套 `HybridAttnBackend`（python/sglang/srt/model_executor/model_runner_components/attention_backend_setup.py:179-L222）。
 
 > **[OPEN]** 注册表与 `ATTENTION_BACKEND_CHOICES` 的「两份名单一致性」目前没有任何启动期校验：若只在 `ATTENTION_BACKENDS` 注册而忘了加 choices，`resolve` 阶段会在 `_build_full_attention_backend_from_str` 的 `if backend_str not in ATTENTION_BACKENDS: raise ValueError` 处才报错（`attention_backend_setup.py:L252-L253`），错误信息只说 "Invalid attention backend" 而不提示「choices 缺项」。可考虑在测试或启动早期加一个一致性自检。
 

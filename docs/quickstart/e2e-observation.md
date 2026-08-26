@@ -167,7 +167,7 @@ sglang:cached_tokens_total{model_name="default",cache_source="device",...} 120.0
 
 1. **`ReqTimeStats` 行默认不打印**：必须 `--enable-request-time-stats-logging`。光开 `--log-requests` 只能看到 Receive/Finish，看不到 `queue_duration`/`forward_duration` 分解（`output_streamer.py:184-L190` 的 `enable_request_time_stats_logging` 守卫）。
 
-2. **`--log-requests-level=3` 会非常吵**：完整输入/输出 dump 可能包含长文本、图片 base64 等，生产环境慎用（见 `request_logger.py:200-L234` 的 `_compute_metadata` 各级别规则）。
+2. **`--log-requests-level=3` 会非常吵**：完整输入/输出 dump 可能包含长文本、图片 base64 等，生产环境慎用（见 `request_logger.py:193-L234` 的 `_compute_metadata` 各级别规则）。
 
 3. **前缀命中要从 `cached_input_len` 推算，不能只看日志有无"hit"字样**：prefill 阶段在 Scheduler 里通过 `tree_cache` 计算前缀匹配（`python/sglang/srt/managers/scheduler.py:2694-L2735`，含 `req._compute_max_prefix_len`、`tree_cache.get_prefix_hash_values` 等调用），命中结果体现在 `cached_tokens` 字段上，不会单独打 "cache hit" 日志行。指标侧则看 `sglang:cache_hit_rate` 与 `sglang:cached_tokens_total`。
 
@@ -184,6 +184,6 @@ sglang:cached_tokens_total{model_name="default",cache_source="device",...} 120.0
 | 请求收到 / 完成内容 | `--log-requests` 的 Receive/Finish 行 | `request_logger.py:88`, `request_logger.py:159` |
 | 单请求排队+前向时延分解 | `ReqTimeStats(...)` 行（需 `--enable-request-time-stats-logging`） | `schedule_batch.py:1787`, `req_time_stats.py:1050` |
 | 前缀命中了多少 token | 日志 `cached_input_len` / 指标 `cached_tokens_total` | `schedule_batch.py:1801`, `metrics_collector.py:1592` |
-| TTFT / ITL / E2E 分布 | Prometheus 直方图 | `metrics_collector.py:1698`, `:1708`, `:1715` |
+| TTFT / ITL / E2E 分布 | Prometheus 直方图 | `metrics_collector.py:1699`, `:1709`, `:1716` |
 | 实时 batch 大小、吞吐、KV 占用 | Prometheus Gauge | `metrics_collector.py:269`, `:287`, `:309` |
 | 每阶段 span 级时延 | 开启 tracing（`--enable-trace` / `SGLANG_TRACE_*`） | `trace.py:82`, `trace_async.py:16` |

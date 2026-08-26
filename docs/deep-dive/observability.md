@@ -109,8 +109,8 @@ scrape_configs:
 
 SGLang **提供**基于 `torch.profiler` 的 GPU/CPU 剖析。通过 HTTP 接口 `/start_profile`、`/stop_profile`（`tokenizer_control_mixin.py:372` 起）触发 `SchedulerProfilerManager`（`scheduler_components/profiler_manager.py`）。
 
-- 默认 `activities=["CPU","GPU"]`，输出 `.trace.json.gz` 的 Chrome trace（`profiler_manager.py:220-265`），保存到 `SGLANG_TORCH_PROFILER_DIR`（默认 `/tmp`）。
-- 支持 `activities` 含 `MEM`（CUDA 内存快照，`_record_memory_history`）、`RPD`（ROCm）、`CUDA_PROFILER`（nsight 起停）等扩展（`profiler_manager.py:254-263`）。
+- 默认 `activities=["CPU","GPU"]`，输出 `.trace.json.gz` 的 Chrome trace（`python/sglang/srt/managers/scheduler_components/profiler_manager.py:197` 与 `:338`），保存到 `SGLANG_TORCH_PROFILER_DIR`（默认 `/tmp`）。
+- 支持 `activities` 含 `MEM`（CUDA 内存快照，`_record_memory_history`）、`RPD`（ROCm）、`CUDA_PROFILER`（nsight 起停）等扩展（`python/sglang/srt/managers/scheduler_components/profiler_manager.py:252-L264`）。
 - 可按 `start_step`+`num_steps` 或 `profile_by_stage`（prefill/decode 分别剖析）精确控制采样窗口（`profiler_manager.py:135-153`、`392-418`）。
 - 提供 `SGLANG_PROFILE_V2` 环境变量切换为新一代 `ProfileManager` 实现（`profiler_manager.py:58-62`、`99`；`environ.py:412`）。
 - 另有 NVTX 标注工具（`nvtx_utils.py`）与请求级 trace（`trace.py`、`req_time_stats.py`），可通过 `init_trace_ctx` / `trace_slice` 记录每个 stage 的 span（`req_time_stats.py:287-328`）。

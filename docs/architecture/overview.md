@@ -17,7 +17,7 @@ SGLang 的推理栈分为两层：
 
 证据锚点：`python/sglang/srt/entrypoints/engine.py:199-211`
 
-注意这里 GPU 计算并不由独立的"模型进程"承担——它发生在 **Scheduler 进程内部**。`Scheduler` 在其 `init_model_worker()` 中直接构造 `TpModelWorker`，而 `TpModelWorker` 又在同一进程内持有 `ModelRunner`（`python/sglang/srt/managers/scheduler.py:986-917` 与 `python/sglang/srt/managers/tp_worker.py:299-466`）。因此本任务题面中"Worker(ModelRunner) 作为一个独立进程"的说法，在默认（非 disaggregation、非 Rust server）部署下并不准确——`ModelRunner` 是 Scheduler 子进程内的一个**线程/对象组件**，而非独立 OS 进程。详见末尾"坑与边界"与 `docs/appendix/_openq_overview.md`。
+注意这里 GPU 计算并不由独立的"模型进程"承担——它发生在 **Scheduler 进程内部**。`Scheduler` 在其 `init_model_worker()` 中直接构造 `TpModelWorker`，而 `TpModelWorker` 又在同一进程内持有 `ModelRunner`（`python/sglang/srt/managers/scheduler.py:917-986` 与 `python/sglang/srt/managers/tp_worker.py:299-466`）。因此本任务题面中"Worker(ModelRunner) 作为一个独立进程"的说法，在默认（非 disaggregation、非 Rust server）部署下并不准确——`ModelRunner` 是 Scheduler 子进程内的一个**线程/对象组件**，而非独立 OS 进程。详见末尾"坑与边界"与 `docs/appendix/_openq_overview.md`。
 
 ---
 
@@ -165,7 +165,7 @@ sequenceDiagram
 
 ## 5. 坑与边界（容易踩错的理解）
 
-1. **ModelRunner 不是独立进程**：如前所述，默认部署下 `ModelRunner` 在 Scheduler 子进程内，由 `TpModelWorker` 持有（`python/sglang/srt/managers/tp_worker.py:299-466`）。若把架构图误画成"Tokenizer / Scheduler / Worker / Detokenizer 四个平级进程"，会与代码不符。仅在 disaggregation（prefill/decode 分离）或 Rust server 模式下，GPU 计算才被独立 server 接管（`python/sglang/srt/entrypoints/engine.py:2003` 的 `self.recv_from_tokenizer = rust_server`）。
+1. **ModelRunner 不是独立进程**：如前所述，默认部署下 `ModelRunner` 在 Scheduler 子进程内，由 `TpModelWorker` 持有（`python/sglang/srt/managers/tp_worker.py:299-466`）。若把架构图误画成"Tokenizer / Scheduler / Worker / Detokenizer 四个平级进程"，会与代码不符。仅在 disaggregation（prefill/decode 分离）或 Rust server 模式下，GPU 计算才被独立 server 接管（`python/sglang/srt/managers/scheduler.py:2003` 的 `self.recv_from_tokenizer = rust_server`）。
 
 2. **多 tokenizer / 多 detokenizer 模式会改变 socket 拓扑**：当 `detokenizer_worker_num>1` 时，会额外起一个 `MultiDetokenizerRouter` 进程，每个 detokenizer worker 使用独立 IPC socket，router 拥有原 `detokenizer_ipc_name`（`python/sglang/srt/entrypoints/engine.py:985-1020`）。同理 `tokenizer_worker_num>1` 时主进程内是 `MultiTokenizerRouter` 而非单个 `TokenizerManager`（`python/sglang/srt/entrypoints/engine.py:1201-1208`）。本文图的拓扑只覆盖默认 `worker_num==1`。
 
@@ -175,7 +175,7 @@ sequenceDiagram
 
 5. **ZMQ PUSH/PULL 是无路由、fire-and-forget**：TokenizerManager 用 `zmq.PUSH` 发、Scheduler 用 `zmq.PULL` 收，是一对多/多对一的队列语义，没有请求-响应配对；请求与输出的"配对"完全靠 `rid` 在应用层完成（`python/sglang/srt/managers/tokenizer_manager.py:2230-2231` 的 `rid_to_state[rid]`）。
 
-6. **启动阻塞点**：`wait_for_ready` 用 `mp.Pipe` 的 `poll(timeout=5.0)` 等待，而非无限阻塞，以便子进程被 OOM SIGKILL 时能尽快报错而非挂死（`python/sglang/srt/entrypoints/engine.py:1762-1791`）。
+6. **启动阻塞点**：`_wait_for_scheduler_ready` 用 `mp.Pipe` 的 `poll(timeout=5.0)` 等待，而非无限阻塞，以便子进程被 OOM SIGKILL 时能尽快报错而非挂死（`python/sglang/srt/entrypoints/engine.py:1762-1791`）。
 
 ---
 

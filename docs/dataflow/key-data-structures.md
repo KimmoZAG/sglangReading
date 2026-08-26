@@ -9,8 +9,8 @@
 SGLang 把"调度视角"与"执行视角"在数据结构层面彻底分开：
 
 - **`Req`**（`python/sglang/srt/managers/schedule_batch.py:L810`，`class Req(ReqDllmMixin)`）是**单个请求**的完整状态机：输入、输出、KV 内存归属、前缀命中、停止原因、logprob 等。它是整个引擎中唯一长期存活、随请求生命周期演化的对象。
-- **`ScheduleBatch`**（`python/sglang/srt/managers/schedule_batch.py:L1995`，`@dataclasses.dataclass class ScheduleBatch`）是**一批请求在某次调度决策时刻的集合视图**，由 `Scheduler` 拥有，数据大多在 CPU 上，承载"高层调度元数据"（如 `forward_mode`、`seq_lens`、`prefix_lens`、`extend_lens`）。
-- **`ForwardBatch`**（`python/sglang/srt/model_executor/forward_batch_info.py:L411`，`@dataclass class ForwardBatch(ForwardBatchDeepSeekMHAMixin)`）是喂给 `ModelRunner` 做**一次前向**的低层打包，绝大多数字段是 GPU 张量（如 `input_ids`、`positions`、`out_cache_loc`）。它由 `ForwardBatch.init_new` 从一个 `ScheduleBatch` 直接构造，且**按设计不允许反向修改 `ScheduleBatch`**（`python/sglang/srt/model_executor/forward_batch_info.py:L747` 的 `init_new must not mutate the input ScheduleBatch`）。
+- **`ScheduleBatch`**（`python/sglang/srt/managers/schedule_batch.py:L1996`，`@dataclasses.dataclass class ScheduleBatch`）是**一批请求在某次调度决策时刻的集合视图**，由 `Scheduler` 拥有，数据大多在 CPU 上，承载"高层调度元数据"（如 `forward_mode`、`seq_lens`、`prefix_lens`、`extend_lens`）。
+- **`ForwardBatch`**（`python/sglang/srt/model_executor/forward_batch_info.py:L412`，`@dataclass class ForwardBatch(ForwardBatchDeepSeekMHAMixin)`）是喂给 `ModelRunner` 做**一次前向**的低层打包，绝大多数字段是 GPU 张量（如 `input_ids`、`positions`、`out_cache_loc`）。它由 `ForwardBatch.init_new` 从一个 `ScheduleBatch` 直接构造，且**按设计不允许反向修改 `ScheduleBatch`**（`python/sglang/srt/model_executor/forward_batch_info.py:L747` 的 `init_new must not mutate the input ScheduleBatch`）。
 
 模块级 docstring 已经写明这条主链路：`ScheduleBatch -> ForwardBatch`，前者由 `scheduler.py::Scheduler` 管理，后者由 `model_runner.py::ModelRunner` 管理（`python/sglang/srt/managers/schedule_batch.py:L34-L46`、`python/sglang/srt/model_executor/forward_batch_info.py:L14-L26`）。
 
@@ -77,7 +77,7 @@ flowchart TD
 
 ### 1.3 `ScheduleBatch` 逐字段表
 
-`ScheduleBatch` 是 `@dataclasses.dataclass`，字段按"核心/全局资源/批级调度态/GPU 张量/配置标志/CPU 元数据/复合对象"分组（`python/sglang/srt/managers/schedule_batch.py:L1995-L2181`）：
+`ScheduleBatch` 是 `@dataclasses.dataclass`，字段按"核心/全局资源/批级调度态/GPU 张量/配置标志/CPU 元数据/复合对象"分组（`python/sglang/srt/managers/schedule_batch.py:L1996-L2181`）：
 
 | 字段 | 类型 | 含义 | 代码锚点 |
 |---|---|---|---|
@@ -105,11 +105,11 @@ flowchart TD
 | `global_num_tokens` | `Optional[List[int]]` | DP attention 各 DP rank 的 token 数 | `:2171` |
 | `is_extend_in_batch` | `bool` | 批内是否含 extend | `:2119` |
 
-构造入口为 `ScheduleBatch.init_new`（`python/sglang/srt/managers/schedule_batch.py:L2183`），它从 `reqs` 聚合出 `return_logprob`、`has_grammar`、`is_prefill_only` 等批级标志。
+构造入口为 `ScheduleBatch.init_new`（`python/sglang/srt/managers/schedule_batch.py:L2184`），它从 `reqs` 聚合出 `return_logprob`、`has_grammar`、`is_prefill_only` 等批级标志。
 
 ### 1.4 `ForwardBatch` 逐字段表
 
-`ForwardBatch` 是 `@dataclass`，定义见 `python/sglang/srt/model_executor/forward_batch_info.py:L411-L638`，注释明确分"Required core / Borrowed / Derived / Forward-derived / Runtime-filled"五类。要点字段：
+`ForwardBatch` 是 `@dataclass`，定义见 `python/sglang/srt/model_executor/forward_batch_info.py:L412-L638`，注释明确分"Required core / Borrowed / Derived / Forward-derived / Runtime-filled"五类。要点字段：
 
 | 字段 | 类型 | 含义 | 代码锚点 |
 |---|---|---|---|
@@ -167,7 +167,7 @@ sequenceDiagram
 
 ### 3.2 构造入口与关键调用
 
-1. **`ScheduleBatch.init_new`**（`python/sglang/srt/managers/schedule_batch.py:L2183`）：`cls(reqs=..., req_to_token_pool=..., token_to_kv_pool_allocator=..., tree_cache=..., model_config=..., ...)` 创建批对象，并即时计算 `return_logprob = any(req.return_logprob)`、`has_grammar = any(req.grammar)`、`is_prefill_only = all(req.is_prefill_only)`。
+1. **`ScheduleBatch.init_new`**（`python/sglang/srt/managers/schedule_batch.py:L2184`）：`cls(reqs=..., req_to_token_pool=..., token_to_kv_pool_allocator=..., tree_cache=..., model_config=..., ...)` 创建批对象，并即时计算 `return_logprob = any(req.return_logprob)`、`has_grammar = any(req.grammar)`、`is_prefill_only = all(req.is_prefill_only)`。
 
 2. **`prepare_for_extend`**（`python/sglang/srt/managers/schedule_batch.py:L2363`）：设置 `forward_mode = EXTEND`（dLLM 用 `DLLM_EXTEND`）；从每个 `req` 计算 `input_ids = get_fill_ids()[len(prefix_indices):]`、`prefix_lens`、`extend_lens = extend_range.length`、`seq_lens = extend_range.end`；随后调用 `alloc_for_extend(self)`（`python/sglang/srt/mem_cache/allocation.py:L303`）完成 KV 分配，回填 `out_cache_loc` 与 `req_pool_indices`。
 

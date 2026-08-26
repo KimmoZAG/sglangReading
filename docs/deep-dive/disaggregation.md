@@ -221,7 +221,7 @@ decode 侧 `process_decode_queue`（`python/sglang/srt/disaggregation/decode.py:
 
 ### 6.3 PD 分离下 radix 缓存的边界
 
-- **prefix 复用只发生在 decode 侧**（开关 `--disaggregation-decode-enable-radix-cache`，`python/sglang/srt/server_args.py:3088`）。decode 在 `pop_preallocated` 用 `match_prefix_for_req` 匹配自身 radix 树（`python/sglang/srt/disaggregation/decode.py:561`），算出 `total_prefix_len` 作为 `decode_prefix_len` 回传给 prefill，prefill 只传 delta 部分（`python/sglang/srt/disaggregation/prefill.py:344` 的 `decode_prefix_len`）。
+- **prefix 复用只发生在 decode 侧**（开关 `--disaggregation-decode-enable-radix-cache`，`python/sglang/srt/server_args.py:3088`）。decode 在 `pop_preallocated` 用 `_match_prefix_and_lock` 匹配自身 radix 树（`python/sglang/srt/disaggregation/decode.py:561`），算出 `total_prefix_len` 作为 `decode_prefix_len` 回传给 prefill，prefill 只传 delta 部分（`python/sglang/srt/disaggregation/prefill.py:344` 的 `decode_prefix_len`）。
 - **prefill 侧对“已传给 decode 的 KV”不能复用**：prefill 在 inflight 完成后 `release_kv_cache(req, self.tree_cache)`（`python/sglang/srt/disaggregation/prefill.py:886`）解锁整棵 radix 树——prefill 的 radix 命中只能省 prefill 自身重算，不能跨实例省传输。
 - **DSV4 NPU（C4）限制：** 当前 PD + decode 侧 radix/HiCache 不支持前缀缓存，检测到 `total_prefix_len != 0` 且带 `c4_attn_allocator` 时直接抛 `RuntimeError`（`python/sglang/srt/disaggregation/decode.py:1105`）。
 - **retracted / rebootstrap 请求不走 decode radix 缓存**：`use_decode_radix_cache` 显式排除 `is_rebootstrap`（`python/sglang/srt/disaggregation/decode.py:1029`），因为前缀 KV 需在更新权重后由 prefill 重算。

@@ -123,7 +123,7 @@ class MultimodalDataItem:
 
 - **占位 token 即数据指纹**：`pad_value = _compute_pad_value(hash)`，占位 token id 落在模型词表之外（`python/sglang/srt/managers/schedule_batch.py:1983` 注释称其为 “hash tokens that lie outside the model vocab”）。这样两个请求只要图像内容不同，占位 id 就不同，前缀树不会错误合并它们的 KV 缓存——天然隔离。
 - **避免重分词漂移**：开启 `SGLANG_MM_AVOID_RETOKENIZE` 时，保留用户原始 token，仅把第 i 个图像占位扩展成 `counts[i]` 个占位（`_expand_input_ids`，`python/sglang/srt/multimodal/processors/base_processor.py:1501-1535`），丢弃 HF 处理器重分词结果。
-- **按图拆分提升缓存粒度**：`get_new_expanded_mm_items`（`python/sglang/srt/multimodal/processors/base_processor.py:1693-1695`）把“整段多图”拆成“每图一个 item”，使相同图像在不同请求间更易命中前缀/编码器缓存。
+- **按图拆分提升缓存粒度**：`get_new_expanded_mm_items`（定义见 `python/sglang/srt/managers/mm_utils.py:1090`；调用处 `python/sglang/srt/multimodal/processors/base_processor.py:1693-1695`）把“整段多图”拆成“每图一个 item”，使相同图像在不同请求间更易命中前缀/编码器缓存。
 - **跨进程传输**：`use_cuda_ipc` 下用有界 CUDA-IPC 池包装 GPU 特征，调度器侧再拷贝并释放（`python/sglang/srt/multimodal/processors/base_processor.py:1706-1710`）。
 
 ### How（关键代码路径）
@@ -134,7 +134,7 @@ class MultimodalDataItem:
 
 - 分类 raw / dict / precomputed 三类输入；
 - 对 raw 图像调用 `_process_and_collect_mm_items` 拿到 `mm_items` 与展开后的 `input_ids`；
-- 为每个 item 计算 `offsets`（`get_mm_items_offset`，`python/sglang/srt/multimodal/processors/base_processor.py:1681-1690`），即占位在 `input_ids` 中的区间；
+- 为每个 item 计算 `offsets`（`get_mm_items_offset` 定义于 `python/sglang/srt/multimodal/processors/base_processor.py:1297-1310`，调用处 `base_processor.py:1687`），即占位在 `input_ids` 中的区间；
 - 调用 `get_new_expanded_mm_items` 拆分，并对 `PROCESSOR_OUTPUT` / `PRECOMPUTED_EMBEDDING` 格式的 item 做 `set_pad_value()`（`python/sglang/srt/multimodal/processors/base_processor.py:1697-1704`）。
 
 编码器侧若需要“仅在本视觉 DP rank 物化”，可用 `EncoderPreprocessOutput`（`python/sglang/srt/multimodal/encoder_preprocessing.py:33-110`）携带 `mm_items`，其 `local_item_indices` / `materialize_for_rank` 按 `get_dp_encoder_lb_assignment`（`python/sglang/srt/multimodal/mm_utils.py:420`）做负载均衡分配。

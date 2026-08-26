@@ -101,7 +101,7 @@ flowchart TD
   受 `max_prefill_tokens` 与 `chunked_prefill_size` 约束（`:3259-L3260`）。
 - 一个尚未跑完的 prefill 会记为 `self.chunked_req`（`scheduler.py:3377-L3378`），下一轮继续喂后缀。
 - prefill 完成后通过 `running_batch.merge_batch` / `mix_with_running`
-  （`scheduler.py:3085-L3099`、`:3440`）并入 decode 批，这正是 continuous batching 的落点。
+  （`python/sglang/srt/managers/schedule_batch.py:3194`（`merge_batch`）、`:2739`（`mix_with_running`））并入 decode 批，这正是 continuous batching 的落点。
 
 ```mermaid
 sequenceDiagram

@@ -1,0 +1,16 @@
+{
+  "architecture/overview.md": 3,
+  "dataflow/sequence-diagrams.md": 1,
+  "deep-dive/scheduler.md": 1,
+  "dataflow/key-data-structures.md": 1,
+  "deep-dive/lora-multimodal.md": 2,
+  "deep-dive/sampling.md": 1,
+  "deep-dive/disaggregation.md": 1,
+  "deep-dive/observability.md": 2,
+  "deep-dive/constrained-decoding.md": 1,
+  "hacking/reading-guide.md": 2,
+  "quickstart/e2e-observation.md": 2,
+  "hacking/add-a-kernel-backend.md": 1,
+  "hacking/dev-setup.md": 1,
+  "appendix/glossary.md": 1
+}

@@ -1,0 +1,48 @@
+你是 SGLang 文档修复工程师。只改【一个】文档文件里的源码锚点错误，不改动其它内容，不编造。
+
+【唯一事实来源 SSOT】/home/kimmo/develop/sglang（commit e1c4db9621f7c4203ee9becd5d5456d4e6bf54f7）。所有修正必须先用 grep/Read 在 SSOT 实测确认。
+
+【目标文件（绝对路径）】/home/kimmo/develop/sglangReading/docs/dataflow/key-data-structures.md
+
+【本文件被评阅出的问题清单】
+
+### 问题 1（SEVERITY=low TYPE=anchor_drift）
+- DETAIL: 多处类/方法定义行号有 ±1 微漂移：`class ScheduleBatch` 标注 `schedule_batch.py:L1995`（实际 1996）；`ScheduleBatch.init_new` 标注 `:2183`（实际 2184）；`class ForwardBatch` 标注 `forward_batch_info.py:L411`（实际 412）；`_get_decode_retraction_order` 标注 `schedule_batch.py:2856`（实际 2857）。
+- SUGGESTED_FIX: 分别改为 1996 / 2184 / 412 / 2857（或统一以 Read 实测为准重校；这些偏差不影响论证，但破坏「行号以 Read 实测为准」的自述承诺）。
+
+---
+
+## TOP5（按 SEVERITY 排序，最该优先修的 5 条）
+
+1. **[high] overview.md · `engine.py:2003` 路径错 + 越界** —— 硬死链，符号实际在 `scheduler.py:2003`。修复成本极低、收益最高（见 ISSUES #1）。
+2. **[medium] overview.md · `engine.py:1762-1791` `wait_for_ready` 符号名错配** —— 实际 `wait_for_ready`@939，1762 是 `_wait_for_scheduler_ready`（见 ISSUES #2）。
+3. **[medium] sequence-diagrams.md · `tp_worker.py:574/609` 误作 `TpModelWorker.forward_batch_generation`** —— 真实方法在 `tp_worker.py:76`（见 ISSUES #4）。
+4. **[low] scheduler.md · `scheduler.py:1173` `init_chunked_prefill` 行号差 20 行** —— 应为 1153（见 ISSUES #5）。
+5. **[low] key-data-structures.md · 多处 ±1 微漂移（1995/2183/411/2856）** —— 统一重校至 1996/2184/412/2857，以维持文档自述的「行号以 Read 实测为准」可信度（见 ISSUES #6）。
+
+---
+
+### 附：核验覆盖说明
+- 已用 `grep class/def <符号>` 或 `sed -n` 直接核验的承重锚点（示例）：scheduler.py（class Scheduler@378、run_event_loop@1658、event_loop_normal@1714、event_loop_overlap@1749、get_next_batch_to_run@3012、run_batch@3623、process_batch_result@3917、process_input_requests@1872、get_new_batch_prefill@3154、_get_new_batch_prefill_raw@3180、update_running_batch@3478、init_chunked_prefill@1153、init_running_status@1131）、schedule_batch.py（Req@810、ScheduleBatch@1996、init_new@2184、prepare_for_extend@2363、prepare_for_decode@3021、check_decode_mem@2799、retract_decode@2806、NextBatchPlan@3393、mix_with_running@2739、_get_decode_retraction_order@2857、init_next_round_input@1297）、engine.py（Engine@199、_launch_subprocesses@1052、_launch_scheduler_processes@848、_launch_detokenizer_subprocesses@966、wait_for_ready@939、_wait_for_scheduler_ready@1762、send_to_rpc@291、collective_rpc@1604、__init__@224、node_rank>=1@1138、PortArgs.init_new@1086、run_scheduler_process@4990）、radix_cache.py（match_prefix@376、insert@436、cache_finished_req@458、cache_unfinished_req@515、evict@592、inc_lock_ref@622、_match_prefix_helper@678、_split_node@704、_insert_helper@737、RadixKey@59、TreeNode@238、RadixCache@303、page_aligned@150、child_key@217、_update_leaf_status@820、_empty_match_result@364）、forward_batch_info.py（ForwardBatch@412、init_new@739）、model_runner.py（forward@1510、init_decode_cuda_graph@1370、forward_split_prefill@1488）、schedule_policy.py（PrefillAdder@504、add_one_req@1201、preempt_to_schedule@1430、match_prefix_for_req@138、cand_extend_input_len@1223）、tp_worker.py（TpModelWorker@299、forward_batch_generation@76、另一同名@574）、tokenizer_manager.py（uvloop@155、generate_request@755、_send_one_request@1586、handle_loop@2200、_handle_batch_output@2215、_wait_one_response@1722）、detokenizer_manager.py（init_ipc_channels@111、event_loop@166、_grouped_batch_decode@226、DecodeStatus@64、_decode_batch_token_id_output@290）、allocator/{base,token,paged}.py、kv_cache_configurator.py、allocation.py、common.py、registry.py、evict_policy.py、hiradix_cache.py、radix_cache_cpp.py、base_prefix_cache.py、utils.py、layers/radix_attention.py、layers/attention/flashattention_backend.py 等。
+- mermaid 图中所有 participant / class / 方法名均通过 `grep class <名>` / `grep def <名>` 验证为 SSOT 真实存在符号，未发现图类名虚构（mermaid_fake=0）。
+- 未发现任何占位锚点（Lx/Ly/XXX/L? 之类，placeholder=0）。
+- 未发现任何「泛泛而谈/凑字数/无信息量」整段；directory-map.md 的轻量属其自述的设计范围（Phase 0 地图），不记为缺陷。
+
+
+【修复步骤（严格执行）】
+1) 用 Read 工具读完整篇 /home/kimmo/develop/sglangReading/docs/dataflow/key-data-structures.md。
+2) 对清单里每一条：
+   - 用 `grep -n "<符号>" /home/kimmo/develop/sglang/python/sglang/srt/<对应文件>` 找到该符号的真实定义行（若 SUGGESTED_FIX 已给正确锚点，仍要用 grep 复核行号是否真实）。
+   - 在文档里定位那条错误的锚点字符串（从 DETAIL 引用的错误锚点原文），用 Edit 工具替换为【已 grep 复核】的正确锚点。
+   - 规则：
+     * 路径错误（如 engine.py 应为 scheduler.py）：改正路径与行号。
+     * 区间颠倒（如 986-917）：改为升序 917-986。
+     * 符号名不匹配（如 wait_for_ready 实为 _wait_for_scheduler_ready、match_prefix_for_req 实为 _match_prefix_and_lock）：改正符号名，行号保留建议值并复核。
+     * 缺前缀的裸文件名（如 `server_args.py:L218`）：补成完整相对 SSOT 路径 `python/sglang/srt/server_args.py:L218`（若该模块确实在 srt 下；用 ls/grep 确认存在）。
+     * 占位/非精确锚点（如 `Lxxx+`）：用 grep 算出真实行号后替换。
+3) 严禁新增/删除非锚点内容；保持 mermaid 代码块完整、不引入新 TODO。
+4) 不运行 mkdocs build（本机沙箱会误报）；只保证锚点真实。
+
+【验收（完成后）】
+- 报告你改了哪些锚点（旧→新）到文件：/home/kimmo/develop/sglangReading/docs/../reports/fix_report_dataflow_key-data-structures.md.md
+- 再次 grep 复核：每条修正后的锚点行号处确为文中引用的符号。

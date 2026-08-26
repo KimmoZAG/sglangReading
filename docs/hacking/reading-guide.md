@@ -70,7 +70,7 @@ flowchart TD
 
 8. **`RadixCache.match_prefix / insert / evict`**（python/sglang/srt/mem_cache/radix_cache.py:376 / 436 / 592）。三者构成前缀复用与淘汰的核心。`match_prefix` 返回最长命中前缀的 KV 索引（:424-434），`insert` 把新前缀写入基数树（:453），`evict` 用 `eviction_heap` 按策略淘汰叶子（:599-620）。
 
-9. **`event_loop_overlap()`**（python/sglang/srt/managers/scheduler.py:1749-1818）。理解 `result_queue` 如何把「上一步结果处理」与「当前步前向」解耦（:1795-1807），以及 `launch_batch_sample_if_needed` 为何要等上一步结果（:1814-1815）。这是专家级需要啃透的异步细节。
+9. **`event_loop_overlap()`**（python/sglang/srt/managers/scheduler.py:1749-1818）。理解 `result_queue` 如何把「上一步结果处理」与「当前步前向」解耦（:1795-1807），以及 `launch_batch_sample_if_needed` 为何要等上一步结果（:3881）。这是专家级需要啃透的异步细节。
 
 ---
 
@@ -130,7 +130,7 @@ curl http://localhost:30000/v1/complete \
 
 1. **overlap 下的时序错觉**：开启 overlap 时，`run_batch` 返回后结果尚未被 `process_batch_result` 处理（它在 `result_queue` 里等下一轮，python/sglang/srt/managers/scheduler.py:1799）。在 `run_batch` 末尾打印 `batch_result` 看到的可能是「上一轮」的快照，调试务必确认 `enable_overlap` 状态。
 
-2. **`event_loop_normal` 与 `event_loop_overlap` 行为不一致**：不要假设两者逻辑等价。overlap 版本多了 `launch_batch_sample_if_needed`（:1814）与 `_apply_war_barrier`（:1798）等同步逻辑。新手先读 normal 版，再读 overlap 版。
+2. **`event_loop_normal` 与 `event_loop_overlap` 行为不一致**：不要假设两者逻辑等价。overlap 版本多了 `launch_batch_sample_if_needed`（:3881）与 `_apply_war_barrier`（:1798）等同步逻辑。新手先读 normal 版，再读 overlap 版。
 
 3. **CUDA graph 会绕过 eager 代码路径**：当 `decode_cuda_graph_runner.can_run_graph` 为真，`_forward_raw` 直接 `execute` 并返回（python/sglang/srt/model_executor/model_runner.py:1686-1691），你设在 `eager_runner.execute` 的断点不会命中。想追 decode 细节需加 `--disable-cuda-graph` 或断在 `decode_cuda_graph_runner.execute`。
 
@@ -138,7 +138,7 @@ curl http://localhost:30000/v1/complete \
 
 5. **`cache_finished_req` 会释放并重新占用引用**：它把完成的请求 KV 写入树后，用 `free_segments` 释放重复/未对齐区间（python/sglang/srt/mem_cache/radix_cache.py:501-509），并 `dec_lock_ref(req.last_node)`（:513）。误以为「写入缓存 = 永久保留」会误解淘汰时机——真正决定生死的是 `evict`（:592）中的 `evictable_leaves` 与 `lock_ref`。
 
-6. **`Scheduler.__init__` 不直接做重活**：它是编排器，真正的模型加载、memory pool 初始化、graph capture 分散在 `init_model_worker`（:901）、`init_memory_pools`（:962）、`init_all_cuda_graphs`（:980）等。追「启动时做了什么」要顺着这些 `init_*` 方法，而非在 `__init__` 里找细节。
+6. **`Scheduler.__init__` 不直接做重活**：它是编排器，真正的模型加载、memory pool 初始化、graph capture 分散在 `init_model_worker`（:986）、`init_memory_pools`（:962）、`init_all_cuda_graphs`（:980）等。追「启动时做了什么」要顺着这些 `init_*` 方法，而非在 `__init__` 里找细节。
 
 > **[OPEN]** `run_scheduler_process`（python/sglang/srt/managers/scheduler.py:4990）如何被 `http_server` 拉起、与 `TokenizerManager` / `RequestDispatcher` 的进程边界具体如何划分，本指南未深入（仅锚定 launch_server 的分发）。如需补全进程拓扑，建议另读 `python/sglang/srt/entrypoints/http_server.py` 与 `managers/io_struct.py`。
 

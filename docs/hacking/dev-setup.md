@@ -31,7 +31,7 @@ graph TD
 ## 2. Why：为什么这样设计
 
 - **可编辑安装 + 源码树分离**：SGLang 同时包含 Python 运行时、JIT/AOT CUDA 算子、以及 Rust 扩展（如 `sglang-grpc`、`sglang-mm`）。`python/pyproject.toml` 用 `setuptools-rust` + `setuptools-scm` 自动发现 `rust/` 工作区里的扩展模块（见 python/pyproject.toml:1-3, 242-247），因此 `pip install -e "python"` 一键把整套运行时以开发模式装好。
-- **pre-commit 而非只靠 CI**：CI 资源有限，且只有受信贡献者能触发（见 contribution_guide.mdx:108-113）。把 ruff/black/isort 下放到本地 pre-commit，能在 push 前就修掉大部分格式问题，减少 CI 往返。
+- **pre-commit 而非只靠 CI**：CI 资源有限，且只有受信贡献者能触发（见 docs/docs/developer_guide/contribution_guide.mdx:108-113）。把 ruff/black/isort 下放到本地 pre-commit，能在 push 前就修掉大部分格式问题，减少 CI 往返。
 - **registered / manual 二分**：CI 机器宝贵，必须能自动发现、按 AST 解析 `est_time`/`stage`/`runner_config` 来调度测试（见 test/README.md:61-73）。把"需要手动搭环境/仅供调试"的用例放进 `manual/`，避免污染 CI 注册表。
 
 ---
@@ -59,7 +59,7 @@ pip install -e "python[test]"
 
 ### 3.2 pre-commit 与代码风格
 
-安装并启用（见 contribution_guide.mdx:23-31）：
+安装并启用（见 docs/docs/developer_guide/contribution_guide.mdx:23-31）：
 
 ```bash
 pip3 install pre-commit
@@ -76,7 +76,7 @@ pre-commit run --all-files      # 本地手动跑全部检查
 - `clang-format`（`--style=file`）：C++/CUDA 文件格式化（见 .pre-commit-config.yaml:61-66）。
 - 大量 `local` 钩子：`check-registered-tests`、`check-no-registered-tests-in-package`、`check-no-bare-pytest-main`、`check-static-ratchets` 等，保证测试注册合规（见 .pre-commit-config.yaml:94-176）。
 
-> **坑 2**：`pre-commit run --all-files` 第一次失败很正常，因为 `--fix` 会就地改文件；改完后**再跑一次**确认通过（contribution_guide.mdx:33）。链接检查（lychee）默认不阻塞本地提交，仅在 CI 强制（contribution_guide.mdx:35）。
+> **坑 2**：`pre-commit run --all-files` 第一次失败很正常，因为 `--fix` 会就地改文件；改完后**再跑一次**确认通过（docs/docs/developer_guide/contribution_guide.mdx:33）。链接检查（lychee）默认不阻塞本地提交，仅在 CI 强制（docs/docs/developer_guide/contribution_guide.mdx:35）。
 
 ### 3.3 测试布局：registered vs manual
 
@@ -194,11 +194,11 @@ sequenceDiagram
 
 ## 6. 边界与坑（速查）
 
-1. **不要直接 push `main`**：必须开分支（如 `feature/xxx`）再开 PR（contribution_guide.mdx:34）。
+1. **不要直接 push `main`**：必须开分支（如 `feature/xxx`）再开 PR（docs/docs/developer_guide/contribution_guide.mdx:34）。
 2. **registered 测试必须注册**：漏掉 `register_cuda_ci(...)` 会被 `check-registered-tests` 钩子拒绝，且 registered 测试不得出现在 `python/sglang/` 包内（由 `check-no-registered-tests-in-package` 检查，见 .pre-commit-config.yaml:135-140）。
-3. **禁用 pickle 反序列化不可信数据**：CI 与贡献指南明确禁止 `pickle.loads/load`、`recv_pyobj` 用于网络/不可信数据（contribution_guide.mdx:159）。
+3. **禁用 pickle 反序列化不可信数据**：CI 与贡献指南明确禁止 `pickle.loads/load`、`recv_pyobj` 用于网络/不可信数据（docs/docs/developer_guide/contribution_guide.mdx:159）。
 4. **CUDA_HOME / CUDA 版本**：源码开发依赖 CUDA，装包前确认 `CUDA_HOME` 与 CUDA 主版本（默认 13）。
-5. **单测试/单 job 时间上限**：单个测试文件 >500s、单个 CI job >30min 都需拆分（contribution_guide.mdx:156-157），否则拖累 CI。
+5. **单测试/单 job 时间上限**：单个测试文件 >500s、单个 CI job >30min 都需拆分（docs/docs/developer_guide/contribution_guide.mdx:156-157），否则拖累 CI。
 6. **环境变量读取双层**：既有直接用 `os.getenv` 的散点（如上表），也有统一的 `envs` 对象（environ.py）。调试时若改了 `envs` 里的声明要确认调用方用的是 `envs.X.get()` 而非自己再 `os.getenv`——可能出现两处默认值不一致。
 
 ```mermaid

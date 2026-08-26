@@ -72,7 +72,7 @@ graph TD
 4. 若命中但为 `InvalidGrammarObject`（编译失败被缓存），直接 `set_finish_with_abort`（L162-L168），避免重复编译报错。
 5. 若 `grammar_backend is None`（即 `none`），直接 abort 并提示结构化生成不可用（L140-L142）。
 
-`GrammarManager.__init__`（`python/sglang/srt/constrained/grammar_manager.py:L26-L60`）负责创建后端，并处理 DP/TP/PP 同步组，因为编译完成的"就绪集合"需要在并行 rank 间对齐（PP0 提供数据，后续 PP rank 透传，见 `_pp_sync_ready_failed` L72-L107）。
+`GrammarManager.__init__`（`python/sglang/srt/constrained/grammar_manager.py:L26-L60`）负责创建后端，并处理 DP/TP/PP 同步组，因为编译完成的"就绪集合"需要在并行 rank 间对齐（PP0 提供数据，后续 PP rank 透传，见 `python/sglang/srt/constrained/grammar_manager.py:77-L107`）。
 
 `get_ready_grammar_requests`（`python/sglang/srt/constrained/grammar_manager.py:L184-L311`）的关键设计：
 

@@ -18,7 +18,7 @@
 第一轴改的是"矩阵乘怎么算"，第二轴只改"从 checkpoint 里读两个 float 出来给 attention kernel 用"，第三轴改的是"KV 池子里的字节长什么样、attention 后端怎么读"。三者可以同时开启，也可以完全独立。
 
 - 轴一入口：`python/sglang/srt/layers/quantization/base_config.py:L126-L263`（`QuantizationConfig` 抽象方法集合）。
-- 轴二入口：`python/sglang/srt/layers/quantization/kv_cache.py:L18-L86`（`BaseKVCacheMethod`）。
+- 轴二入口：`python/sglang/srt/layers/quantization/kv_cache.py:L18-L85`（`BaseKVCacheMethod`）。
 - 轴三入口：`python/sglang/srt/layers/quantization/fp4_kv_cache_quant_method.py:L110-L290`（`KVCacheQuantMethodBase`）。
 
 ---

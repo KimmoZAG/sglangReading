@@ -10,7 +10,7 @@
 
 ## How：字段如何被解析成 CLI 并加载
 
-`ServerArgs` 不是手工写 argparse 的，而是由一个工具函数从 dataclass 字段**自动**派生出 argparse 参数。`add_cli_args_from_dataclass(parser, cls)` 遍历每个 dataclass 字段，按注解推导 CLI 名称、类型解析器、choices、默认值、action（`arg_groups/arg_utils.py:218-L338`）。关键推导规则：
+`ServerArgs` 不是手工写 argparse 的，而是由一个工具函数从 dataclass 字段**自动**派生出 argparse 参数。`add_cli_args_from_dataclass(parser, cls)` 遍历每个 dataclass 字段，按注解推导 CLI 名称、类型解析器、choices、默认值、action（`arg_groups/arg_utils.py:218-L337`）。关键推导规则：
 
 - 字段名 `model_path` → 旗标 `--model-path`（`_field_to_cli_name`，`arg_groups/arg_utils.py:208-L210`）。
 - `bool` 字段 → `action="store_true"`（`arg_groups/arg_utils.py:313-L319`）。

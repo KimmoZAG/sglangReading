@@ -37,7 +37,7 @@ SGLang 的"服务端入口"由三层协作构成，职责边界清晰：
 
 ### 2.2 为何用 dataclass + 注解自动生成 CLI
 
-`ServerArgs` 有近千个字段。若全部手写 `parser.add_argument`，维护成本极高。SGLang 选择用 `A[T, Arg(...)]` 注解（即 `typing.Annotated` 的别名 `A`，`python/sglang/srt/arg_groups/arg_utils.py:L58`）声明字段，再由 `add_cli_args_from_dataclass`（`python/sglang/srt/arg_groups/arg_utils.py:L218-L338`）统一扫描 dataclass 字段、自动生成 argparse 参数。这样：
+`ServerArgs` 有近千个字段。若全部手写 `parser.add_argument`，维护成本极高。SGLang 选择用 `A[T, Arg(...)]` 注解（即 `typing.Annotated` 的别名 `A`，`python/sglang/srt/arg_groups/arg_utils.py:L58`）声明字段，再由 `add_cli_args_from_dataclass`（`python/sglang/srt/arg_groups/arg_utils.py:L218-L337`）统一扫描 dataclass 字段、自动生成 argparse 参数。这样：
 
 - 字段名 `tp_size` → CLI 旗标 `--tp-size`（`_field_to_cli_name`，`arg_utils.py:L208-L210`）。
 - `aliases=["--tensor-parallel-size"]` 提供 `--tp-size` 的等价长名（`server_args.py:L1006`）。

@@ -139,7 +139,7 @@ flowchart TD
 
 ### 3.5 prefill 与 decode 能否同批：混合调度（Mixed Chunked Prefill）
 
-当 `is_mixed_chunk`（即 `chunked_prefill_size` 非 None 且 `enable_mixed_chunk`，见 `init_chunked_prefill`，`python/sglang/srt/managers/scheduler.py:1173`）开启时，`_get_new_batch_prefill_raw` 在 prefill 批次构造后检查（`python/sglang/srt/managers/scheduler.py:3429`）：
+当 `is_mixed_chunk`（即 `chunked_prefill_size` 非 None 且 `enable_mixed_chunk`，见 `init_chunked_prefill`，`python/sglang/srt/managers/scheduler.py:1153`）开启时，`_get_new_batch_prefill_raw` 在 prefill 批次构造后检查（`python/sglang/srt/managers/scheduler.py:3429`）：
 
 - `running_batch` 非空；
 - 没有 `return_logprob` 冲突；
@@ -225,4 +225,4 @@ stateDiagram-v2
 
 `Scheduler` 的调度本质是**单线程事件循环 + 每步一次 `get_next_batch_to_run` 决策**：先合并上轮 prefill 结果到 `running_batch`，再尽量凑 prefill 批次（含 chunked / mixed），没有 prefill 才继续 decode；结果经 `process_batch_result` 回收并触发 KV 释放/缓存。`PrefillAdder` 是 admission control 的核心，`retract_decode` 与 `preempt_to_schedule` 分别处理 decode OOM 与优先级抢占，二者都把被驱逐请求重新入队等待重算，并依赖 radix 缓存前缀复用尽量降低重算代价。混合 chunked prefill 与 radix 命中、形状约束（input_embeds）之间存在需要留意的边界条件。
 
-> 全文锚点：`python/sglang/srt/managers/scheduler.py:378`、`:1131`、`:1153`、`:1173`、`:1658`、`:1714`、`:1749`、`:1872`、`:2007`、`:3012`、`:3154`、`:3180`、`:3273`、`:3293`、`:3397`、`:3429`、`:3478`、`:3623`、`:3917`、`:2922`、`python/sglang/srt/managers/schedule_policy.py:504`、`:997`、`:1201`、`:1430`、`python/sglang/srt/managers/schedule_batch.py:2363`、`:2739`、`:2799`、`:2806`、`:3021`、`:3393`、`python/sglang/srt/managers/scheduler_components/request_receiver.py:76`、`python/sglang/srt/managers/scheduler_components/batch_result_processor.py:193`、`python/sglang/srt/managers/scheduler_input_blocker.py:25`。
+> 全文锚点：`python/sglang/srt/managers/scheduler.py:378`、`:1131`、`:1153`、`:1658`、`:1714`、`:1749`、`:1872`、`:2007`、`:3012`、`:3154`、`:3180`、`:3273`、`:3293`、`:3397`、`:3429`、`:3478`、`:3623`、`:3917`、`:2922`、`python/sglang/srt/managers/schedule_policy.py:504`、`:997`、`:1201`、`:1430`、`python/sglang/srt/managers/schedule_batch.py:2363`、`:2739`、`:2799`、`:2806`、`:3021`、`:3393`、`python/sglang/srt/managers/scheduler_components/request_receiver.py:76`、`python/sglang/srt/managers/scheduler_components/batch_result_processor.py:193`、`python/sglang/srt/managers/scheduler_input_blocker.py:25`。

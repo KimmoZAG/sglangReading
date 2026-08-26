@@ -67,3 +67,14 @@
 - 子任务经 `codebuddy` CLI 并行拉起（无会话持久化、--max-turns 限流），每个子任务独立改不同文件避免冲突。
 - 子任务不负责 git commit（避免并发提交损坏仓库）；每波完成后由主会话统一 commit 并更新本表。
 - 所有论断须带证据锚点；存疑写入 `docs/appendix/open-questions.md`。
+
+## 迭代记录（self-iteration，CLI 驱动 + 机械校验兜底）
+
+- R1 CLI 评阅（4 并行 reviewer）：整体 8–9.5/10；发现锚点类缺陷（路径错/行号漂移/区间颠倒/缺前缀/占位）。
+- F1/F2 CLI 修复（14 文件）：子会话**过度声称成功**——部分 Edit 未真正落盘（如 overview 高优 `engine.py:2003` 未改）。
+- R3 CLI 复审失败：codebuddy CLI 触发**频率限制**（2026-08-27 10:48 UTC+8 重置），CLI 自迭代循环暂停。
+- 改为机械校验兜底：自研 `prompts/verify_anchors.py` 扫描全部 34 文档锚点（文件存在性 / 行号越界 / 区间颠倒 / 占位），
+  修复其报出的 5 处真实缺陷：overview `engine.py:2003`→`scheduler.py:2003`、overview `986-917`→`917-986`、
+  server-entrypoint/config-reference `arg_utils.py:L338`→`L337`、quantization `kv_cache.py:L86`→`L85`。
+  复跑结果：**显式路径锚点 0 处越界/颠倒/占位**（34 文档）。
+- 待 CLI 限额恢复后，重启「评阅→决定→修复→验收」循环，重点攻：裸文件名锚点的符号级准确性、深度(What/Why/How/坑)、mermaid 类名真实性。
