@@ -1,0 +1,21 @@
+Done. Both files written and verified.
+
+**`docs/quickstart/minimal-example.md`** — 完全重写，验收自检结果：
+
+| 项 | 结果 |
+| --- | --- |
+| `TODO: 待子任务填充` 占位 | 0 处（已删除） |
+| 证据锚点 | 72 处引用 / 68 个唯一锚点（要求 ≥8） |
+| Mermaid 图 | 2 个（入口分派 flowchart + 启动就绪 sequenceDiagram） |
+| 中文字数 | 2150 CJK 字符（要求 ≥900） |
+| 分节 | What / Why / How(服务端) / How(客户端) / 健康检查 / 离线运行 / 坑 / 速查 |
+
+内容要点（全部源自 SSOT 实读）：
+- 三入口链路：`cli.main.main` → `cli.serve.serve` → `launch_server.run_server` → `http_server.launch_server` → `Engine._launch_subprocesses`，含 `--smg-grpc-mode` / `--use-ray` / `--encoder-only` 分支
+- 最小命令核实自 argparse：`model_path` 是唯一必填项，`host="127.0.0.1"`、`port=30000`（server_args.py:L1253-L1254）；位置参数写法来自 `_normalize_positional_model_path`
+- 就绪判定链：warmup 线程轮询 `/model_info`（120×1s）→ 发写死的 `"The capital city of France is"` 预热请求 → `ServerStatus.Up` → `"fired up and ready to roll!"`
+- 客户端示例照抄 CI：`/generate` 形状取自 `test_srt_endpoint.py:L85-L100`，OpenAI SDK 用法取自 `test_openai_server.py:L39-L52`，`sgl.Engine` 取自 `examples/runtime/engine/launch_engine.py`
+- 探针语义表（`/health` vs `/health_generate` vs `/ping` vs `/model_info` vs `/v1/models` vs `/server_info`）
+- 10 个坑，其中较有价值的：`/health` 默认**会真的生成 token**（`SGLANG_ENABLE_HEALTH_ENDPOINT_GENERATION` 默认 True 使早退分支恒假）；warmup 失败会 `kill_process_tree(os.getpid())` 导致服务"自己退了"；`Engine` 默认 `log_level="error"`；`examples/usage/` 此 commit 下只有 1 个 modelopt 脚本，样例实际在 `examples/runtime/engine/`
+
+**`docs/appendix/_openq_minimal-example.md`** — 1 条 OPEN：`sglang serve --config x.yaml`（model_path 仅在 YAML）疑似会被 `get_model_path` 提前拒绝，因为 YAML 合并发生在下游的 `prepare_server_args` 内，与 `python -m sglang.launch_server --config` 不等价。已给出验证方法，正文对应处用 `> **[OPEN]**` 标注。未触碰 `open-questions.md`，未执行 git 命令，未修改 SSOT。

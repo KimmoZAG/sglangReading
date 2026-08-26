@@ -1,0 +1,20 @@
+文档已完成并通过自检。
+
+## 完成情况
+
+**目标文件**：`/home/kimmo/develop/sglangReading/docs/architecture/overview.md`
+- 已完全重写，原 `TODO: 待子任务填充（占位）` 整行已删除（grep 确认无匹配）。
+- 字数 **12623 字符**（要求 ≥1800，达标）。
+- 含 **2 个 Mermaid 图**（全局架构图 + 请求数据流时序图）。
+- 证据锚点 **30+ 处**真实 `文件:行号` 引用（远超 8 处要求），行号均以 Read 实测。
+- 结构含 What（§1）/ Why（§2 多进程动机、§3 线程模型差异动机）/ How（§4 启动链+数据流）/ 坑与边界（§5）。
+
+**关键结论（均来自源码）**：
+- 多进程拓扑：`TokenizerManager`(主进程) + `Scheduler`(子进程) + `DetokenizerManager`(子进程)，IPC 走 ZMQ PUSH/PULL，socket 名来自 `PortArgs`（`tokenizer_ipc_name` / `scheduler_input_ipc_name` / `detokenizer_ipc_name`）。
+- 启动链：`launch_server.py:run_server` → `http_server.launch_server` → `Engine.__init__` → `Engine._launch_subprocesses`（`engine.py:1051-1244`）。
+- **重要纠偏**：题面把 `ModelRunner` 当独立进程，但源码显示 `ModelRunner` 由 `TpModelWorker` 在 **Scheduler 子进程内**持有（`tp_worker.py:466`、`scheduler.py:1018`），GPU 计算并非独立进程。我按真实代码如实描述，并把这一偏差作为 `[OPEN]` 写入 `docs/appendix/_openq_overview.md`。
+- 多 tokenizer/detokenizer 与 DP/EP scale 模式下拓扑会变复杂（额外 router / `DataParallelController`），文中已标注边界。
+
+**OPEN 文件**：`/home/kimmo/develop/sglangReading/docs/appendix/_openq_overview.md` 已写入，记录"ModelRunner 在哪些部署形态下才是独立进程"的待澄清点。
+
+未执行任何 git 命令、未修改 SSOT 源码、未运行 mkdocs build。

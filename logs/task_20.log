@@ -1,0 +1,23 @@
+文档已完成并自检通过。
+
+## 交付总结
+
+**目标文件**：`/home/kimmo/develop/sglangReading/docs/deep-dive/lora-multimodal.md`（已完全重写，无 TODO 占位）
+
+**验收标准全部满足**：
+- ✅ 无 TODO 占位（0 处）
+- ✅ 字数 16616 字符（≥2000）
+- ✅ 61 处全路径真实证据锚点（≥8），全部指向 SSOT 真实 `文件:行号`，无残留裸文件名
+- ✅ 3 个 Mermaid 图（LoRA 旁路/批内隔离 flowchart、多模态注入 sequenceDiagram、Radix 前缀复用关系 flowchart）
+- ✅ 关键类名/函数名与源码一致（`LoRAManager`、`FusedMoEWithLoRA`、`BaseLayerWithLoRA`、`MultimodalDataItem`、`general_mm_embed_routine` 等）
+- ✅ 结构含 What / Why / How / 坑 四节
+- ✅ OPEN 问题已写入 `/home/kimmo/develop/sglangReading/docs/appendix/_openq_lora-multimodal.md`，正文对应处用 `> **[OPEN]**` 标注
+
+**核心内容要点**：
+- **LoRA**：`_load_lora_adapter` 加载校验 → `LoRAMemoryPool` 固定槽位 + `uid_to_buffer_id` → `prepare_lora_batch` 把 per-req `lora_ids` 映射为 `weight_indices`/`token_lora_mapping` → 包装层 `lora_active` 决定是否走 `base + B·A·x` 旁路；批内不同适配器靠 `buffer_id` 严格隔离，受 `max_loras_per_batch` 与 pin 限制。
+- **多模态**：`MultimodalDataItem`（独立 hash/pad_value，词表外占位 token）→ `process_mm_data`/`process_and_combine_mm_data` 展开占位 → `prepare_encoder_info_extend` 计算 `encoder_cached` → `general_mm_embed_routine` 用视觉塔特征替换 `input_embeds`。
+- **关键坑**：RadixCache 只缓存 KV 不缓存视觉嵌入，靠 `prefix_indices >= num_image_tokens` 判定是否跳过编码器；视觉塔不参与 LoRA；DP-attention 空闲前向须 `reset_lora_batch`。
+
+**一处修正**：原把 `managers/mm_utils.py:642/698` 误归为 `multimodal/mm_utils.py`，已改为正确路径。
+
+注：未执行任何 git 命令、未修改 SSOT 源码，仅写入目标文档与 `_openq` 附录。

@@ -1,0 +1,118 @@
+site_name: SGLang 源码精读
+site_description: 基于本地 sglang 源码（SSOT）从零到深入的中文文档站
+site_url: https://kimmo.github.io/sglangReading/
+repo_url: https://github.com/kimmo/sglangReading
+repo_name: kimmo/sglangReading
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  language: zh
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - navigation.instant
+    - navigation.tracking
+    - search.suggest
+    - search.highlight
+    - content.action.edit
+    - content.code.copy
+    - content.code.annotate
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: 切换深色
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: 切换浅色
+  icon:
+    repo: fontawesome/brands/github
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/kimmo/sglangReading
+
+plugins:
+  - search:
+      # 中文分词：仅在 ASCII 空白/标点处切分，保留连续 CJK 作为一个 token，便于整词检索
+      separator: '[\s,.:;=\[\]()"`/{}!?@#$%^&*_+<>|\\~]+'
+
+markdown_extensions:
+  - admonition
+  - abbr
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+      toc_depth: 3
+  - tables
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.details
+  - pymdownx.tasklist:
+      custom_checkbox: true
+
+strict: true
+
+nav:
+  - 首页: index.md
+  - 快速开始:
+      - 安装: quickstart/install.md
+      - 最小可跑示例: quickstart/minimal-example.md
+      - 端到端观测: quickstart/e2e-observation.md
+  - 架构:
+      - 全局架构总览: architecture/overview.md
+      - 请求生命周期: architecture/request-lifecycle.md
+      - 目录与模块地图: architecture/directory-map.md
+  - 模块深潜:
+      - 前端 DSL 与执行: deep-dive/frontend-language.md
+      - 服务入口与参数体系: deep-dive/server-entrypoint.md
+      - Tokenizer / Detokenizer: deep-dive/tokenizer-detokenizer.md
+      - 调度器: deep-dive/scheduler.md
+      - Radix 缓存: deep-dive/radix-cache.md
+      - KV 显存池: deep-dive/memory-pool.md
+      - 注意力后端: deep-dive/attention-backends.md
+      - ModelRunner: deep-dive/model-runner.md
+      - 模型接入: deep-dive/model-impl.md
+      - 并行策略: deep-dive/parallelism.md
+      - 量化: deep-dive/quantization.md
+      - 约束解码: deep-dive/constrained-decoding.md
+      - 投机解码: deep-dive/speculative-decoding.md
+      - 采样: deep-dive/sampling.md
+      - LoRA 与多模态: deep-dive/lora-multimodal.md
+      - PD 分离: deep-dive/disaggregation.md
+      - 可观测性: deep-dive/observability.md
+  - 数据流:
+      - 核心数据结构: dataflow/key-data-structures.md
+      - 时序图集: dataflow/sequence-diagrams.md
+  - 动手实践:
+      - 开发环境: hacking/dev-setup.md
+      - 新增模型: hacking/add-a-model.md
+      - 新增注意力后端: hacking/add-a-kernel-backend.md
+      - 阅读路线: hacking/reading-guide.md
+  - 附录:
+      - 术语表: appendix/glossary.md
+      - 配置参考: appendix/config-reference.md
+      - 未解问题: appendix/open-questions.md
+      - 文档变更日志: appendix/changelog-of-docs.md

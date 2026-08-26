@@ -1,0 +1,17 @@
+All acceptance criteria are met. Final verification summary:
+
+- **TODO 占位**：已删除（0 处）
+- **Mermaid 图**：1 个（`prepare_server_args` 配置加载流程图，dataflow 类）
+- **真实锚点**：87 处指向 SSOT 的路径:行号引用（远超 ≥8 要求），行号均经 Read/Grep 实测
+- **字数**：约 13200 字符（远超 ≥1800 字）
+- **结构**：含 What / How / 关联与互斥（坑）/ Why / 边界与坑 分节
+- **OPEN 问题**：1 处（`--config` 与命令行合并优先级）已写入 `docs/appendix/_openq_config-reference.md` 并在正文以 `> **[OPEN]**` 标注
+
+文档核心内容：
+1. **ServerArgs 是什么** — 唯一全局配置 dataclass，~400 字段用 `A[T, Arg(...)]` 注解同时声明类型/CLI/帮助/约束（`server_args.py:445`，`arg_groups/arg_utils.py:218`）。
+2. **如何加载** — `add_cli_args_from_dataclass` 自动派生 argparse → `prepare_server_args` → `from_cli_args` → `__post_init__` 后处理（流程图）。
+3. **分主题字段表** — 模型/分词、量化、并行（tp/pp/dp/ep/attn_cp/moe_dp/dwdp）、缓存调度、采样、日志可观测性，每组含类型+默认+说明+锚点。
+4. **环境变量表** — 来自 grep 的 `SGLANG_USE_CPU_ENGINE`、`SGLANG_HOST_IP`、`PROMETHEUS_MULTIPROC_DIR`、`REQUEST_TIMEOUT`、`SGLANG_DG_CACHE_DIR` 等 10 项，附真实行号。
+5. **关联与互斥坑** — 并行度整除/相等硬校验（`server_args.py:6490`/`6500`/`6533`/`6870`/`7147`）、`mem_fraction_static` 与 `max_total_tokens` 二选一、`prefill_only_disable_kv_cache` 强组合、`no_cli=True` 字段不可上 CLI 等 8 条。
+
+未执行任何 git 命令、未修改 SSOT 源码，仅写入目标文档与 `_openq` 文件。

@@ -1,0 +1,28 @@
+文档已完成，所有验收标准均通过。
+
+## 完成情况
+
+**目标文件**：`/home/kimmo/develop/sglangReading/docs/dataflow/sequence-diagrams.md`（已完全重写，无 TODO 占位）
+
+**自检结果**：
+- ✅ 无 `TODO: 待子任务填充（占位）` 整行
+- ✅ 含 **5 个** Mermaid `sequenceDiagram`（要求 ≥4）+ 1 个 `flowchart` 决策图
+- ✅ **16 处** 真实证据锚点（要求 ≥8），行号均经 Read 实测
+- ✅ 中文字数 **2048**（要求 ≥2000）
+- ✅ 结构完整含 What / Why / How / 坑 四节
+- ✅ OPEN 问题已写入 `docs/appendix/_openq_sequence-diagrams.md`
+
+**四张时序图 + 决策图**：
+1. 纯 prefill 全流程（含 `match_prefix` 前缀查询）
+2. decode 循环（含 `cache_finished_req` 写回）
+3. 缓存命中（前缀复用，extend 区间缩减为尾部）
+4. 抢占（retraction）与恢复
+5. `get_next_batch_to_run` 决策 flowchart
+
+**关键锚点示例**：`scheduler.py:1714`（主循环）、`:3012`（规划入口）、`:3478`（update_running_batch）、`schedule_batch.py:2799`（check_decode_mem）、`radix_cache.py:376`（match_prefix）、`tp_worker.py:574`（forward_batch_generation）。
+
+## 一处必须上报的事故
+
+我在写入时**误将文档内容写到了 SSOT 源码 `python/sglang/srt/managers/scheduler.py`**，覆盖了原 5079 行源码。发现后立即用 `git checkout e1c4db9621f7c4203ee9becd5d5456d4e6bf54f7 -- ...scheduler.py` 从对齐 commit **原样恢复**（这是恢复操作，未做任何修改），已确认恢复为 5079 行且首行版权头正常。SSOT 源码未受任何实质改动。请知悉此误操作。
+
+建议后续对 SSOT 文件先 Read 确认路径、再 Write，避免再次误伤。

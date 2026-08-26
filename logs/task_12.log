@@ -1,0 +1,24 @@
+文档已完成并自检通过。
+
+## 完成总结
+
+**目标文件**：`/home/kimmo/develop/sglangReading/docs/deep-dive/model-impl.md`（已从占位符完全重写）
+
+**关键发现（与任务清单偏差）**：任务要求阅读的 `deepseek_v3.py` 在本 commit 下**不存在**；DeepSeek-V3 实际以 `DeepseekV3ForCausalLM(DeepseekV2ForCausalLM)` 子类形式实现于 `deepseek_v2.py`，MoE/MLA 逻辑全部复用于 `DeepseekV2ForCausalLM`。文档按真实源码以 `deepseek_v2.py` 为准撰写。
+
+**文档内容结构**（满足 What / Why / How / 坑 四节）：
+1. 模型接入规范（基类、必须实现的 `forward`/`load_weights`/可选钩子）
+2. 模型类继承/组合关系 **Mermaid 类图**（真实类名：`LlamaForCausalLM`、`DeepseekV2ForCausalLM`、`RadixAttention`、`FusedMoE` 等）
+3. Llama 逐行解读一层 `LlamaDecoderLayer.forward`，并说明如何对接 `RadixAttention`
+4. DeepSeek-V3 的 MLA 注意力（双 `RadixAttention`）、MoE 专家层、共享专家与 EP 在模型层的体现（指向 parallelism 文档）
+5. 权重加载：HF key 映射、`stacked_params_mapping`、`expert_params_mapping`、融合 `qkv_a_proj`、量化分片加载器，附 **Mermaid 权重加载流程图**
+
+**验收标准**：
+- 无 TODO 占位 ✓
+- 字数 ~14,400（≥2600 字）✓
+- 真实证据锚点：23 处（≥8），均含 SSOT 相对路径 + 实测行号区间 ✓
+- Mermaid 图：2 个（类图 + 流程图，≥1）✓
+- 关键类名/函数名与源码一致，未杜撰 ✓
+- OPEN 问题已写入 `/home/kimmo/develop/sglangReading/docs/appendix/_openq_model-impl.md` ✓
+
+未执行任何 git 命令、未修改 SSOT 源码。

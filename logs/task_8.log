@@ -1,0 +1,23 @@
+All acceptance criteria are now met. The document is complete.
+
+## 完成总结
+
+已写入 `/home/kimmo/develop/sglangReading/docs/deep-dive/attention-backends.md`，自检全部通过：
+
+| 指标 | 要求 | 实际 |
+| --- | --- | --- |
+| TODO 占位行 | 无 | ✅ 无 |
+| 中文篇幅 | ≥2400 字 | ✅ 2459 字 |
+| 真实行号锚点 | ≥8 | ✅ 84 个（全为 `python/sglang/srt/...py:Lx` 完整相对路径） |
+| Mermaid 图 | ≥1 | ✅ 3 个（选择流程图 / 抽象层 flowchart / MLA 类图） |
+| 结构（What/Why/How/坑） | 必备 | ✅ 每节齐备 |
+
+文档覆盖要点：
+- **后端抽象**：`AttentionBackend` 基类接口（`init_forward_metadata` 的 out_graph/in_graph 拆分、`forward` 按 `forward_mode` 分派、三个原子算子与类属性开关），附 `base_attn_backend.py:L33-L297` 锚点。
+- **注册表与工厂**：`ATTENTION_BACKENDS` + `create_*_backend`，含 MLA 专属后端的强制校验。
+- **选择流水线**：`resolve_attention_backend_strs → build_attention_backends → _build_resolved_backend`（prefill≠decode 时构造 `HybridAttnBackend`），`_get_default_attn_backend` 自动回退。
+- **ServerArgs 开关**：`attention_backend` / `decode_attention_backend` / `prefill_attention_backend` 及静默回退坑（`overrides.py` 多补丁）。
+- **MLA 后端**：`FlashInferMLAAttnBackend` 父类的 `FlashMLABackend`(page=64) 与 `CutlassMLABackend`(page=128) 继承体系。
+- **元数据构建坑**（重点）：`seq_lens_cpu` D2H 门控、ragged/paged 决策、page_size 一致性、out/in-graph 拆分，并新增 5.5 节说明 eager 与 CUDA graph 两条元数据生命周期。
+
+未创建 `_openq_attention-backends.md`：阅读源码过程中所有潜在疑问（如 `use_mla_backend` 触发条件、`fa4` 的 MLA 路径、`compressed→dsv4` 别名）均已在源码中得到确定结论，无遗留 `[OPEN]` 项。

@@ -1,0 +1,13 @@
+All acceptance criteria are met:
+
+- **TODO 占位**：已删除（0 处）✅
+- **Mermaid 图**：2 个（flowchart 数据环 + sequenceDiagram 跨进程时序）✅
+- **真实锚点**：17+ 处 `python/sglang/srt/...py:L` 行号区间引用（如 `http_server.py:874-919`、`tokenizer_manager.py:755-821`、`scheduler.py:1714-1746`、`model_runner.py:1510`、`detokenizer_manager.py:166-174`）✅
+- **字数**：中文 1902 字，超过 1800 下限 ✅
+- **结构**：含 What / Why / How / 边界与坑 四节，并细分 8 个小节 ✅
+- **OPEN 问题**：已写入 `docs/appendix/_openq_request-lifecycle.md`，正文对应处用 `> **[OPEN]**` 标注（多 tokenizer 模式回程路径）✅
+
+文档核心结论（均源自该 commit 源码）：
+- 请求穿越 **5 个真实组件**（HTTPServer、TokenizerManager、Scheduler、ModelRunner、DetokenizerManager）+ **4 段 ZMQ 队列**；分词/解码在进程边界分离。
+- **SSE 流式返回发生在 `HTTPServer.stream_results` 生成器**（`http_server.py:880-904`），由 decode 步逐 token 经 ZMQ 回程、落到 `TokenizerManager.handle_loop → _handle_batch_output` 唤醒 `_wait_one_response` 后 yield。
+- **prefill（代码中称 extend）** 仅出现在请求首次进运行队列的 `get_next_batch_to_run` 决策；**decode** 每步即一个流式 chunk，经 `ModelRunner.forward`（model_runner.py:1510）按 `forward_mode` 分派到 decode/prefill CUDA graph。

@@ -1,0 +1,19 @@
+文档已完成并通过自检。
+
+**目标文件**：`/home/kimmo/develop/sglangReading/docs/hacking/reading-guide.md`
+
+**验收结果**：
+- ✅ 无 `TODO: 待子任务填充（占位）`（grep 计数为 0）
+- ✅ 含 1 个 Mermaid 架构/流程混合图（入口 → 调度循环 → 前向 → 缓存）
+- ✅ 26 个唯一真实证据锚点（≥8，全部用 Read 实测行号）
+- ✅ 9506 字符（≥1000 字）
+- ✅ 结构含 What / Why / How / 坑 四节
+
+**核心内容要点**：
+- **阅读顺序**分三阶段：新手（入口 `launch_server.run_server` → `Scheduler.__init__` → `dispatch_event_loop` → `event_loop_normal`）、进阶（`get_next_batch_to_run` / `run_batch` / `ModelRunner.forward`）、专家（`RadixCache` 三件套 + `event_loop_overlap`）。
+- **10 个 breakpoint 表**，每个函数配真实锚点（如 `get_next_batch_to_run` 在 scheduler.py:3012、`ModelRunner._forward_raw` 在 model_runner.py:1654、`RadixCache.match_prefix` 在 radix_cache.py:376）。
+- **最小复现**：`--tp 1 --disable-overlap-schedule` + 单请求 curl，并解释为何这样能规避多 rank 分散与 overlap 异步干扰（锚定 scheduler.py:428、:4908）。
+- **6 条坑**：overlap 时序错觉、normal/overlap 行为差、CUDA graph 绕过 eager、bigram 视图、缓存引用释放、`__init__` 仅为编排器。
+- 正文 1 处 `[OPEN]` 已同步写入 `docs/appendix/_openq_reading-guide.md`。
+
+所有论断均来自 SSOT 源码实测，未执行任何 git 命令，未修改 SSOT 源码。

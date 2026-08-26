@@ -1,0 +1,13 @@
+全部验收标准通过。文档已写入 `/home/kimmo/develop/sglangReading/docs/appendix/glossary.md`。
+
+自检结果：
+- **TODO 占位**：0（已清除）
+- **真实证据锚点**：46 处（`路径:行号`，均来自 Read 实测，如 `radix_cache.py:303`、`:376`、`scheduler.py:1153`、`:1134`、`:3430`、`parallel_state.py:2383`、`:2528`、`:2620`、`:2289`、`eagle_worker_v2.py:128`、`:494`、`model_runner.py:997` 等）
+- **Mermaid 图**：4 个（前缀复用流程、调度时序、并行组拓扑、EAGLE 投机循环）
+- **字数**：中文 2083 字，总计 11038 字符（≥1000）
+- **术语表**：24 条（≥20），覆盖 RadixAttention/RadixCache/Prefix Cache/KV Cache/Paged KV/Chunked Prefill/Continuous Batching/Mixed Chunk/TP/PP/DP/EP/MoE/EAGLE/Speculative Decoding/N-gram/CUDA Graph/ForwardMode/Tree Attention/PD 分离/GroupCoordinator/req_to_token_pool/lock_ref/Eviction
+- **结构**：含 What / Why / How / 坑 四节
+- **OPEN 问题**：已写入 `docs/appendix/_openq_glossary.md`（顶层 Data Parallel 与并行组内 DP 的装配关系未确定）
+- 全文未使用任何 markdown 链接（仅纯文本引用其他文档路径），符合 strict 构建约束
+
+关键锚点均来自对 commit `e1c4db9621f7c4203ee9becd5d5456d4e6bf54f7` 源码的实读，未做猜测。

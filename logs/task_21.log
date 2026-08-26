@@ -1,0 +1,23 @@
+All acceptance criteria are satisfied. The documentation is complete.
+
+## 完成总结
+
+已写入 `/home/kimmo/develop/sglangReading/docs/deep-dive/disaggregation.md`，并附 OPEN 问题至 `/home/kimmo/develop/sglangReading/docs/appendix/_openq_disaggregation.md`。
+
+**验收结果：**
+- TODO 占位：已删除（0 处）
+- Mermaid 图：4 个（架构图、prefill 时序、decode 时序、KVPoll 状态机）
+- 真实证据锚点：58 处不同路径:行号（≥8）
+- 字数：16436 字符（≥2200）
+- 结构含 What / Why / How / 坑 四节
+
+**文档核心内容（均来自源码阅读）：**
+- **架构**：`PrefillBootstrapQueue`(`prefill.py:119`) 与 `DecodePreallocQueue`(`decode.py:293`)/`DecodeTransferQueue`(`decode.py:1795`) 通过 `BaseKVSender`/`BaseKVReceiver`(`base/conn.py`) 抽象 + `KVPoll` 状态机衔接，后端由 `get_kv_class`(`utils.py:630`) 工厂注入 NIXL/Mooncake 等。
+- **KV 传输路径**：decode 预分配显存 → `send_metadata` 下发写地址(`decode.py:1309`) → prefill `send_kv_chunk` RDMA 直写(`prefill.py:1139`) → decode `pop_transferred` 轮询至 `Success`(`decode.py:2018`)。
+- **路由/负载均衡**：外部 Router 用 `bootstrap_host/room` 配对，内部由 Bootstrap Server(`register_to_bootstrap` `common/conn.py:680`) 维护 prefill 并行信息表，decode 侧 `_resolve_prefill_dp_rank`(`decode.py:577`) 用 `room % dp_size` 选 DP rank。
+- **一致性**：`_commit_transfer_to_req`(`decode.py:1830`) 做 `bootstrap_room` 元数据门控校验防跨 rank 分叉；传输异步、调度靠轮询。
+- **坑**：轮询间隔尾延迟、metadata buffer 容量瓶颈、decode 侧 radix 有限复用边界、两端 TP/dtype/page_size 必须一致、unified-memory 搬迁互斥窗口。
+
+**标注的 OPEN 问题**：外部 Router 的扇出与 `bootstrap_room` 分配策略不在本 commit 引擎源码内，且 `room % dp_size` 负载均衡的生效依赖 Router 端分配离散性——均记录在 `_openq_disaggregation.md`，正文用 `> **[OPEN]**` 标注。
+
+注：任务提示里的 `connector/` 目录在本 commit 实际不存在（传输后端直接位于 `disaggregation/nixl/`、`disaggregation/mooncake/` 等），文档以实际源码结构为准。

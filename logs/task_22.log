@@ -1,0 +1,16 @@
+完成。文档已写入 `/home/kimmo/develop/sglangReading/docs/quickstart/install.md`，全部验收标准达标：
+
+- **无 TODO 占位**：已整行删除。
+- **字数**：中文 1578 字（≥900）。
+- **Mermaid**：1 个安装方式决策流程图（组件名与源码一致：`framework_final` / `runtime` / `pip install -e` 等）。
+- **真实锚点**：12 处带 `L` 行号区间的引用，全部用 Read 实测确认，含 `docker/Dockerfile`、`python/pyproject.toml`、`python/setup.py`、`scripts/ci/cuda/ci_install_dependency.sh`。
+- **结构**：含 What / Why / How / 边界与坑 四节，并区分「已核实命令」与「通用建议」。
+
+关键发现（均可溯源）：
+
+1. **无 `python/requirements.txt`** —— 依赖全部集中在 `python/pyproject.toml` 的 `[project].dependencies`（L17-L94），这是版本演进而非遗漏，文中已明确标注。
+2. **三种安装路径**：pip editable（`pip install -e "python[extras]"`）、Docker 多阶段构建（基础 `nvidia/cuda:13.0.3-cudnn-devel-ubuntu24.04`）、Rust 扩展源码编译（`setup.py` 自动发现 `rust/` workspace 的 PyO3 crate，工具链固定 1.92）。
+3. **CUDA 主版本强一致**：torch/flashinfer/sgl-kernel/sgl-deep-gemm/sgl-deep-ep/nixl/mooncake 均区分 cu12/cu13，仅支持 12.6.3/12.9.2/13.0.3 三版本。
+4. **验证流程**：复用 CI 的 `verify_imports()` 三层校验（find_spec 防影子包 + 加载 `_core` 原生扩展 + torch CUDA 一致）。
+
+无 OPEN 问题需写入 `_openq_install.md`——`requirements.txt` 缺失已作为源码实证结论澄清，其余命令/版本均有明确源码证据。

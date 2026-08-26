@@ -1,0 +1,25 @@
+All acceptance criteria are met. Summary:
+
+**文档已完成** — `/home/kimmo/develop/sglangReading/docs/deep-dive/frontend-language.md`
+
+自检结果：
+- 无 TODO 占位符 ✓
+- 19 个真实证据锚点（≥8）✓，均指向 `python/sglang/lang/` 真实文件与行号区间
+- 2 个 Mermaid 图（架构图 + fork 并行时序图，≥1）✓
+- 中文 2363 字（≥2200）✓
+- What / Why / How / 坑 四节齐全 ✓
+
+**关键发现（与任务预设的重要差异）**：本 commit 的 `lang/` 目录**不存在** `program.py`、`compiler.py`、`__init__.py`。实际结构是：
+- `api.py` —— 公共 DSL 原语（`gen`/`select`/`image`/`system`…）与 `SglFunction` 调用入口
+- `ir.py` —— 程序实体 `SglFunction` 与 IR 节点（`SglExpr` 体系）
+- `interpreter.py` —— 解释执行（`run_program`/`StreamExecutor`/`ProgramState`）
+- `tracer.py` —— 追踪执行（记录 IR 图 + 前缀缓存）
+- `backend/` —— `RuntimeEndpoint` 经 HTTP 与 srt 引擎交互
+
+因此「编译执行 vs 解释执行两条路径」据实改写为：**解释执行（run/StreamExecutor）** 与 **追踪执行（trace/TracerProgramState）** 两条路径，前者实时执行、后者记录 `SglExpr` IR 图用于前缀缓存与重放，没有独立字节码编译器。
+
+**OPEN 问题**已写入 `docs/appendix/_openq_frontend-language.md`，并在正文用 `> **[OPEN]**` 标注 2 处：
+1. `position_ids_offset` 在 fork 路径下未被传递、`BaseBackend.fork_program` 无调用方 → 在 `RuntimeEndpoint` 路径下可能无效
+2. `concate_and_append` 模式断言 `fork_start_text_pos == self_len`，父状态在 fork/join 间推进文本会触发断言
+
+另记录 1 条关于 `program.py`/`compiler.py` 去向的 OPEN 问题。未执行任何 git 命令、未修改 SSOT 源码。

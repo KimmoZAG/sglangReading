@@ -1,0 +1,21 @@
+文档已完成并通过自检。
+
+## 交付总结
+
+**目标文件**：`/home/kimmo/develop/sglangReading/docs/hacking/dev-setup.md`
+
+**验收结果**（全部达标）：
+- TODO 占位行：已删除（grep 计数 0）✓
+- 字数：11881 字符（≥1000）✓
+- Mermaid 图：4 个（目录结构图、测试布局图、debug 时序图、开发流程 flowchart）✓
+- 真实证据锚点：64 处（≥8），全部指向 SSOT 真实路径+行号 ✓
+- 结构含 What / Why / How / 坑 四节 ✓
+
+**内容覆盖**：
+1. **开发环境组成** — 可编辑安装、pre-commit 门禁、测试树、调试开关
+2. **搭建命令** — `pip install -e "python[test]"`（install.mdx:60-70 / pyproject.toml:154-185）、pre-commit 三步（contribution_guide.mdx:23-31）、`.pre-commit-config.yaml` 中 ruff/black/isort/clang-format 实际配置
+3. **测试布局** — `test/registered`（需 `register_cuda_ci` 模块级注册）vs `test/manual`，含真实单测命令（test/README.md:39-59）
+4. **Debug 技巧** — `Scheduler`/`ModelRunner`/`TokenizerManager` 断点、`debug_utils/dumper.py`+`dump_loader.py`+`tensor_dump_forward_hook.py`、`py-spy`/`cuda_coredump`/`remote-pdb`，均指向真实函数与行号
+5. **环境变量表** — 29 个真实变量（来自 `os.getenv`/`os.environ` grep），含作用/默认/锚点；并说明 `environ.py` 中 `envs` 对象是权威声明处
+
+**OPEN 问题**：本次阅读无不确定或需标注之处，故未生成 `_openq_dev-setup.md`（符合"无则不必创建"的约定，也未改动 `open-questions.md`）。

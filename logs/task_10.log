@@ -1,0 +1,22 @@
+文档已完成并通过自检。
+
+## 完成总结
+
+**目标文件**：`/home/kimmo/develop/sglangReading/docs/deep-dive/server-entrypoint.md`（已完全重写，无 TODO 占位）
+
+**验收结果**：
+- TODO 占位行：0（已删除）✓
+- Mermaid 图：1 个（http_server → Engine → Managers 关系图，组件名与源码一致）✓
+- 真实证据锚点：12 处（`python/sglang/srt/...py:Lxxx` 格式，行号均经 Read 实测）✓
+- 字数：12,894 字符（≥ 2,400 最低要求）✓
+- 四节结构：What / Why / How / 边界与坑 ✓
+
+**内容覆盖**（依据对齐 commit 源码）：
+1. **HTTP 服务入口**：`app=FastAPI(L455)`、`launch_server(L2718)`、`_setup_and_run_http_server(L2464)`、路由定义（`/v1/chat/completions` L1702、`/v1/messages` L1982、`/api/chat` L1953、原生 `/generate` L874）如何经 `tokenizer_manager.generate_request` 交互。
+2. **API 兼容层**：`OpenAIServingBase.handle_request(serving_base.py:L73)` 统一骨架；`OpenAIServingChat._convert_to_internal_request(serving_chat.py:L912)` 把 ChatRequest 映射为 `GenerateReqInput`；Anthropic 复用 openai_serving_chat、Ollama 独立实现。
+3. **ServerArgs 体系**：dataclass 结构（L444）、`A=Annotated` 注解（`arg_utils.py:L58`）、`add_cli_args_from_dataclass` 自动推导 CLI（L218）、`check_server_args` 冲突断言（L9004）、`PortArgs`（L9701）。
+4. **Engine 封装**：`Engine._launch_subprocesses(L1052)` 聚合 TokenizerManager（主进程）/ Scheduler / DetokenizerManager（子进程）。
+
+**OPEN 问题**：2 处已写入 `/home/kimmo/develop/sglangReading/docs/appendix/_openq_server-entrypoint.md`（多 tokenizer 状态一致性、serving 层 default_sampling_params 来源），正文对应位置用 `> **[OPEN]**` 标注。
+
+未执行任何 git 命令，未修改 SSOT 源码。

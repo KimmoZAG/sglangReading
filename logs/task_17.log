@@ -1,0 +1,20 @@
+All acceptance criteria pass. Document complete.
+
+**交付物**
+- 目标文件：`/home/kimmo/develop/sglangReading/docs/deep-dive/constrained-decoding.md`（已完全重写，无 TODO 占位）
+- OPEN 问题：`/home/kimmo/develop/sglangReading/docs/appendix/_openq_constrained-decoding.md`
+
+**自检结果**
+- TODO 占位：0（已删除）
+- 真实证据锚点：28 处（要求 ≥8），全部用 Read 实测行号
+- Mermaid 图：2 个（组件图 + token→mask→采样 时序图，要求 ≥1）
+- 篇幅：约 11880 字符（远超 2000 字要求）
+- 结构：含 What / Why / How / 边界与坑 四节
+
+**关键结论（均来自源码）**
+- 实际默认后端是 **xgrammar**（`server_args.py:L6089-L6091`），可选 `xgrammar/outlines/llguidance/none`（`server_args.py:L243`）。
+- 模块结构相对任务原列表已重构：`__init__/grammar/constraint/xgrammar.py` 不存在，真实文件为 `base_grammar_backend.py`、`grammar_manager.py`、`xgrammar_backend.py`、`outlines_backend.py`、`llguidance_backend.py`、`reasoner_grammar_backend.py` 等——文档开头已注明。
+- 约束在 logits 层 mask：`SamplingBatchInfo.update_regex_vocab_mask` 填充位图 → `GrammarMask.apply` 在采样前应用（`sampling_batch_info.py:L296-L297`）。
+- JSON schema 高效性来自 xgrammar/llguidance 的 **token 级位图预查**（`fill_next_token_bitmask`），位图按 32 bit 打包。
+- 状态机增量维护：`accept_token` 推进、`fill_vocab_mask` 算下一步合法集、`rollback` 回退。
+- 坑：与投机解码通过 `grammar_needs_sync`（`schedule_batch.py:L2232-L2235`）协调，NGRAM 不支持 overlap 须退化为同步路径；并行采样（n>1）与单 FSM 的潜在冲突已写入 OPEN 问题文件。
