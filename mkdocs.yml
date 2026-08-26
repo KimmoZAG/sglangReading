@@ -1,8 +1,8 @@
 site_name: SGLang 源码精读
 site_description: 基于本地 sglang 源码（SSOT）从零到深入的中文文档站
-site_url: https://kimmo.github.io/sglangReading/
-repo_url: https://github.com/kimmo/sglangReading
-repo_name: kimmo/sglangReading
+site_url: https://KimmoZAG.github.io/sglangReading/
+repo_url: https://github.com/KimmoZAG/sglangReading
+repo_name: KimmoZAG/sglangReading
 edit_uri: edit/main/docs/
 
 theme:
