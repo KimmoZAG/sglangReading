@@ -142,9 +142,9 @@ metadata 没有统一的基类约束，是后端内部自定义的 dataclass。F
 
 **2) 字符串解析**：`attention_backends_of(cfg)`（`python/sglang/srt/arg_groups/overrides.py:L276-L290`）把 split 字段回退到基础 backend，返回 `(prefill, decode)` 二元组；`ServerArgs.get_attention_backends()`（`server_args.py:L8923-L8924`）即委托它。
 
-**3) Runner 解析并落库**：`ModelRunner.init_attention_backends`（`python/sglang/srt/model_executor/model_runner.py:L932-L952`）先调用 `resolve_attention_backend_strs(model_runner=self)` 得到 `(prefill, decode)`（`attention_backend_setup.py:L155-L176`），把结果烙印到 `self.prefill_attention_backend_str` / `decode_attention_backend_str`（model_runner.py:L947-L948），再调用 `build_attention_backends`（attention_backend_setup.py:L67-L140）。
+**3) Runner 解析并落库**：`ModelRunner.init_attention_backends`（`python/sglang/srt/model_executor/model_runner.py:L932-L952`）先调用 `resolve_attention_backend_strs(model_runner=self)` 得到 `(prefill, decode)`（`python/sglang/srt/model_executor/model_runner_components/attention_backend_setup.py:L155-L176`），把结果烙印到 `self.prefill_attention_backend_str` / `decode_attention_backend_str`（model_runner.py:L947-L948），再调用 `build_attention_backends`（python/sglang/srt/model_executor/model_runner_components/attention_backend_setup.py:L67-L140）。
 
-**4) 工厂实例化**：`_build_full_attention_backend_from_str` 校验名字在 `ATTENTION_BACKENDS` 中，并以 `ATTENTION_BACKENDS[backend_str](model_runner)` 调用工厂（`attention_backend_setup.py:L249-L255`）。注意：工厂拿到的是 `model_runner`，其 `prefill_attention_backend_str`/`decode_attention_backend_str` 此时已被设置，因此后端构造时即可读取（FlashInfer 在 `__init__` 中读取 `model_runner.prefill_attention_backend_str` 做 KV 访问校验，见 `flashinfer_backend.py:L327-L333`）。
+**4) 工厂实例化**：`_build_full_attention_backend_from_str` 校验名字在 `ATTENTION_BACKENDS` 中，并以 `ATTENTION_BACKENDS[backend_str](model_runner)` 调用工厂（`python/sglang/srt/model_executor/model_runner_components/attention_backend_setup.py:L249-L255`）。注意：工厂拿到的是 `model_runner`，其 `prefill_attention_backend_str`/`decode_attention_backend_str` 此时已被设置，因此后端构造时即可读取（FlashInfer 在 `__init__` 中读取 `model_runner.prefill_attention_backend_str` 做 KV 访问校验，见 `flashinfer_backend.py:L327-L333`）。
 
 **5) 模型级包装与 hybrid**：若 `prefill != decode`，则 `_build_resolved_backend` 会用 `HybridAttnBackend` 把两个完整后端组合起来（`python/sglang/srt/model_executor/model_runner_components/attention_backend_setup.py:179-L222`）；草稿（draft）worker 则用 `draft_attention_backend` 统一覆盖 prefill/decode（L167-L174）。此外 `attn_backend_wrapper`（attention_registry.py:L309-L494）会为混合架构（GDN、Mamba2、KDA 等）再包一层线性/稀疏侧后端。
 
@@ -188,7 +188,7 @@ sequenceDiagram
        return DummyAttnBackend(runner)
    ```
 
-   工厂签名必须是 `create_dummy_backend(runner)`（单位置参数），因为 `_build_full_attention_backend_from_str` 用 `ATTENTION_BACKENDS[backend_str](model_runner)` 调用（attention_backend_setup.py:L255）。
+   工厂签名必须是 `create_dummy_backend(runner)`（单位置参数），因为 `_build_full_attention_backend_from_str` 用 `ATTENTION_BACKENDS[backend_str](model_runner)` 调用（`python/sglang/srt/model_executor/model_runner_components/attention_backend_setup.py:L255`）。
 
 3. **把名字加入 CLI choices**：在 `server_args.py` 的 `ATTENTION_BACKEND_CHOICES`（L179-L207）追加 `"dummy"`，或直接调用 `add_attention_backend_choices(["dummy"])`（L392-L393）。这一步缺失会导致 argparse 拒绝该选项（但它们被用作 `choices=`，见 server_args.py:L1672）。
 
@@ -198,7 +198,7 @@ sequenceDiagram
 
 6. **启动验证**：用 `--attention-backend dummy`（或 `--prefill-attention-backend dummy --decode-attention-backend dummy`）启动。`ModelRunner.init_attention_backends` 会解析并实例化（model_runner.py:L932-L952）；若 prefill≠decode，会自动套 `HybridAttnBackend`（python/sglang/srt/model_executor/model_runner_components/attention_backend_setup.py:179-L222）。
 
-> **[OPEN]** 注册表与 `ATTENTION_BACKEND_CHOICES` 的「两份名单一致性」目前没有任何启动期校验：若只在 `ATTENTION_BACKENDS` 注册而忘了加 choices，`resolve` 阶段会在 `_build_full_attention_backend_from_str` 的 `if backend_str not in ATTENTION_BACKENDS: raise ValueError` 处才报错（`attention_backend_setup.py:L252-L253`），错误信息只说 "Invalid attention backend" 而不提示「choices 缺项」。可考虑在测试或启动早期加一个一致性自检。
+> **[OPEN]** 注册表与 `ATTENTION_BACKEND_CHOICES` 的「两份名单一致性」目前没有任何启动期校验：若只在 `ATTENTION_BACKENDS` 注册而忘了加 choices，`resolve` 阶段会在 `_build_full_attention_backend_from_str` 的 `if backend_str not in ATTENTION_BACKENDS: raise ValueError` 处才报错（`python/sglang/srt/model_executor/model_runner_components/attention_backend_setup.py:L252-L253`），错误信息只说 "Invalid attention backend" 而不提示「choices 缺项」。可考虑在测试或启动早期加一个一致性自检。
 
 ## 五、坑：metadata 构造与 forward_mode
 
@@ -212,7 +212,7 @@ sequenceDiagram
 
 5. **decode 与 extend 的 KV 写入语义不同**。FlashInfer 的 `forward_decode` 只有在 `save_kv_cache=True` 时才 `set_kv_buffer`（flashinfer_backend.py:L1423-L1432），且其 `cache_loc` 在交叉注意力下取自 `encoder_out_cache_loc`（L1417-L1421）。若你的 backend 不处理交叉注意力，需在构造/工厂阶段按 FlashInfer 那样 `assert not is_encoder_decoder`（参考 `triton` 后端，attention_registry.py:L179-L182）。
 
-6. **prefill/decode 分离会触发 HybridAttnBackend**。一旦用户设置 `--prefill-attention-backend X --decode-attention-backend Y`，Runner 会用 `HybridAttnBackend` 包裹两个完整 backend，并先 `attn_backend_wrapper` 再做模型级包装（attention_backend_setup.py:L191-L217）。你的 backend 需要能在「被包裹」语境下正常工作，且其 `forward_metadata` 的惰性（lazy）重建不能依赖跨 forward 的全局状态。
+6. **prefill/decode 分离会触发 HybridAttnBackend**。一旦用户设置 `--prefill-attention-backend X --decode-attention-backend Y`，Runner 会用 `HybridAttnBackend` 包裹两个完整 backend，并先 `attn_backend_wrapper` 再做模型级包装（`python/sglang/srt/model_executor/model_runner_components/attention_backend_setup.py:L191-L217`）。你的 backend 需要能在「被包裹」语境下正常工作，且其 `forward_metadata` 的惰性（lazy）重建不能依赖跨 forward 的全局状态。
 
 ## 六、小结与交叉阅读
 

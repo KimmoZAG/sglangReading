@@ -162,12 +162,12 @@ MLA **专属**后端在工厂里强制校验：若用户在不支持 MLA 的模�
 
 ```mermaid
 flowchart LR
-    A[ServerArgs] --> B[resolve_attention_backend_strs<br/>attention_backend_setup.py:L155-L176]
-    B --> C[build_attention_backends<br/>attention_backend_setup.py:L67-L140]
-    C --> D{_build_resolved_backend<br/>attention_backend_setup.py:L179-L233}
+    A[ServerArgs] --> B[resolve_attention_backend_strs<br/>python/sglang/srt/model_executor/model_runner_components/attention_backend_setup.py:L155-L176]
+    B --> C[build_attention_backends<br/>python/sglang/srt/model_executor/model_runner_components/attention_backend_setup.py:L67-L140]
+    C --> D{_build_resolved_backend<br/>python/sglang/srt/model_executor/model_runner_components/attention_backend_setup.py:L179-L233}
     D -->|prefill==decode| E[单后端]
     D -->|prefill!=decode| F[HybridAttnBackend<br/>hybrid_attn_backend.py:L18-L59]
-    E --> G[_build_full_attention_backend_from_str<br/>attention_backend_setup.py:L249-L255]
+    E --> G[_build_full_attention_backend_from_str<br/>python/sglang/srt/model_executor/model_runner_components/attention_backend_setup.py:L249-L255]
     F --> G
     G --> H[ATTENTION_BACKENDS[str]<br/>(model_runner)]
 ```
