@@ -198,7 +198,7 @@ stateDiagram-v2
 
 1. 用 `_get_decode_retraction_order`（`python/sglang/srt/managers/schedule_batch.py:2856`）确定驱逐顺序：默认按 `(len(output_ids), -len(origin_input_ids))` **逆序**——即"输出越长、原始输入越短"的请求越优先保留（因为它已经投入最多、重算代价最大）；若 `retraction_policy == "priority"` 则按 priority 排序（`:2872`）。
 2. 循环从队尾 `pop` 一个请求，`release_req` 释放其 KV（**不插入 radix 树**，因为需要立刻腾出空间，`schedule_batch.py:2825` 注释），直到 `check_decode_mem` 通过或只剩 1 个请求。
-3. 被驱逐的请求通过 `self._add_request_to_queue(req, is_retracted=True)`（`python/sglang/srt/managers/scheduler.py:3549`）重新进入 `waiting_queue`（NULL 模式）或 PD decode 的 prealloc 队列（`:2731`），下一轮会被 `get_new_batch_prefill` 当作普通请求重新 prefill——**由于 radix 缓存可能仍保留其前缀，重算时往往能命中缓存前缀**。
+3. 被驱逐的请求通过 `self._add_request_to_queue(req, is_retracted=True)`（`python/sglang/srt/managers/scheduler.py:2715`）重新进入 `waiting_queue`（NULL 模式）或 PD decode 的 prealloc 队列（`:2731`），下一轮会被 `get_new_batch_prefill` 当作普通请求重新 prefill——**由于 radix 缓存可能仍保留其前缀，重算时往往能命中缓存前缀**。
 4. 若连最后 1 个请求都满足不了，则 `FINISH_ABORT`（`:2836`）优雅中止，而非让 scheduler 崩溃（`schedule_batch.py:2828`）。
 
 ### 4.3 优先级抢占（prefill 抢占 decode）

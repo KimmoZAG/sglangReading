@@ -100,7 +100,7 @@ self.process_batch_result(batch, result)           # 采样/组输出/推给 det
 - **extend / prefill**：走 `prefill_cuda_graph_runner.execute(...)`（L1736-1741）或 eager 路径（L1741 之后）。`init_prefill_cuda_graph`（`model_runner.py:1385-1401`）捕获 prefill CUDA graph。
 - **split prefill**：`forward_split_prefill`（`model_runner.py:1488-1510`）用于把超长 prompt 切块 prefill。
 
-`forward` 返回 `GenerationBatchResult`，其中包含采样出的 `logits`/`next_token_ids`，随后由 `run_batch` 内的 `copy_to_cpu`（如 L3724-3737）把结果 D2H 回 CPU。
+`forward` 返回 `GenerationBatchResult`，其中包含采样出的 `logits`/`next_token_ids`，随后由 `Scheduler.run_batch` 内的 `batch_result.copy_to_cpu()`（`python/sglang/srt/managers/scheduler.py:3724-3737`）把结果 D2H 回 CPU。
 
 ### 5) 回程：Scheduler → DetokenizerManager → TokenizerManager
 

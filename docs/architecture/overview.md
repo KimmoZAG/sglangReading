@@ -17,7 +17,7 @@ SGLang 的推理栈分为两层：
 
 证据锚点：`python/sglang/srt/entrypoints/engine.py:199-211`
 
-注意这里 GPU 计算并不由独立的"模型进程"承担——它发生在 **Scheduler 进程内部**。`Scheduler` 在其 `init_model_worker()` 中直接构造 `TpModelWorker`，而 `TpModelWorker` 又在同一进程内持有 `ModelRunner`（`python/sglang/srt/managers/scheduler.py:917-986` 与 `python/sglang/srt/managers/tp_worker.py:299-466`）。因此本任务题面中"Worker(ModelRunner) 作为一个独立进程"的说法，在默认（非 disaggregation、非 Rust server）部署下并不准确——`ModelRunner` 是 Scheduler 子进程内的一个**线程/对象组件**，而非独立 OS 进程。详见末尾"坑与边界"与 `docs/appendix/_openq_overview.md`。
+注意这里 GPU 计算并不由独立的"模型进程"承担——它发生在 **Scheduler 进程内部**。`Scheduler` 在其 `init_tp_model_worker()` 中直接构造 `TpModelWorker`，而 `TpModelWorker` 又在同一进程内持有 `ModelRunner`（`python/sglang/srt/managers/scheduler.py:901-918` 与 `python/sglang/srt/managers/tp_worker.py:299-466`）。因此本任务题面中"Worker(ModelRunner) 作为一个独立进程"的说法，在默认（非 disaggregation、非 Rust server）部署下并不准确——`ModelRunner` 是 Scheduler 子进程内的一个**线程/对象组件**，而非独立 OS 进程。详见末尾"坑与边界"与 `docs/appendix/_openq_overview.md`。
 
 ---
 
@@ -157,9 +157,9 @@ sequenceDiagram
 
 - **Tokenize**：`TokenizerManager.generate_request` → `_tokenize_one_request` 把文本变成 `input_ids`，再 `_send_one_request` 推送给 Scheduler（`python/sglang/srt/managers/tokenizer_manager.py:801-807`）。
 - **Scheduler 收包与调度**：`event_loop_normal` 每轮 `recv_requests()` 拉取，`process_input_requests` 把请求落成 `Req` 并插入等待队列（`python/sglang/srt/managers/scheduler.py:1721-1722`）。
-- **前缀复用（RadixCache）**：在把请求送入 forward 前，Scheduler 通过 `RadixCache.match_prefix` 查最长已缓存前缀，命中部分直接复用 KV，只算未命中后缀（`python/sglang/srt/mem_cache/radix_cache.py:376-434`）。生成完成后 `cache_finished_req` 把新前缀 `insert` 回树（`python/sglang/srt/mem_cache/radix_cache.py:436-456`）。
+- **前缀复用（RadixCache）**：在把请求送入 forward 前，Scheduler 通过 `RadixCache.match_prefix` 查最长已缓存前缀，命中部分直接复用 KV，只算未命中后缀（`python/sglang/srt/mem_cache/radix_cache.py:376-434`）。生成完成后 `cache_finished_req`（`:458` 起）把新前缀通过 `insert`（`python/sglang/srt/mem_cache/radix_cache.py:436-457`）写回树。
 - **GPU 前向**：`Scheduler` 调 `self.model_worker.forward_batch_generation(batch)`，最终落到 `ModelRunner.forward(forward_batch) → _forward_raw`，返回 `ModelRunnerOutput`（`python/sglang/srt/model_executor/model_runner.py:1510-1560` 与 `python/sglang/srt/managers/scheduler.py:3691/3760`）。
-- **回传 detokenize**：Scheduler 把输出 token 经 `self.ipc_channels.send_to_detokenizer.send_output(...)` 发给 Detokenizer（`python/sglang/srt/managers/scheduler.py:4852/4863`）；Detokenizer 的 `handle_batch_token_id_out` 把 token id 还原文本后 `sock_send` 回 TokenizerManager（`python/sglang/srt/managers/detokenizer_manager.py:166-173`），由 `_handle_batch_output` 写入 `ReqState.out_list` 并 `state.event.set()` 唤醒等待中的生成器（`python/sglang/srt/managers/tokenizer_manager.py:2215-2309`）。
+- **回传 detokenize**：Scheduler 把输出 token 经 `self.ipc_channels.send_to_detokenizer.send_output(...)` 发给 Detokenizer（`python/sglang/srt/managers/scheduler.py:4852/4863`）；Detokenizer 的 `handle_batch_token_id_out`（`:430` 起）把 token id 还原文本后 `sock_send` 回 TokenizerManager，由 `_handle_batch_output` 写入 `ReqState.out_list` 并 `state.event.set()` 唤醒等待中的生成器（`python/sglang/srt/managers/tokenizer_manager.py:2215-2309`）。
 
 ---
 

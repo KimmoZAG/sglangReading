@@ -57,7 +57,7 @@ flowchart TD
 | `json_schema` / `regex` / `ebnf` / `structural_tag` | 结构化输出约束，互斥（`sampling_params.py:201-L210`） | `sampling_params.py:71-L74`, `sampling_params.py:207-L210` |
 | `ignore_eos` | 忽略 eos，持续生成 | `sampling_params.py:75` |
 | `sampling_seed` | 确定性采样种子（`multinomial_with_seed`） | `sampling_params.py:81`, `sampler.py:684-L725` |
-| `custom_params` | 传给自定义 logit processor 的 JSON 安全参数 | `sampling_params.py:82`, `custom_logit_processor.py:15-L21` |
+| `custom_params` | 传给自定义 logit processor 的 JSON 安全参数 | `sampling_params.py:82`, `custom_logit_processor.py:24` |
 
 `normalize(tokenizer)`（`sampling_params.py:212-L254`）把字符串型 `stop` / `stop_regex` 编码为 token 序列并计算最大匹配长度（`stop_str_max_len`），随后把原始别名清空、置 `is_normalized=True`。它还会通过 `raise_if_tokenizer_required`（`sampling_params.py:305-L332`）在 `skip_tokenizer_init=True` 时拒绝依赖 tokenizer 的特性（字符串 stop、`min_new_tokens`）。
 

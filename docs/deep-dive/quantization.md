@@ -366,7 +366,7 @@ AWQ/GPTQ 的 `create_weights` / `apply` 全部依赖 `layer.scheme` 已被 `get_
 
 1. 写 `MyConfig(QuantizationConfig)`，实现 `get_name` / `get_supported_act_dtypes` / `get_min_capability` / `get_config_filenames` / `from_config` / `get_quant_method` / `get_scaled_act_names` 七个抽象方法（`base_config.py:L126-L263` 列全了）。
 2. 在 `BASE_QUANTIZATION_METHODS` 注册（`__init__.py:L72-L101`）；若要支持 CPU/AMX 还得进 `CPU_QUANTIZATION_METHODS`（`__init__.py:L133-L141`）。
-3. 在 `ModelConfig` 的 `supported_quantization` 列表里加名字（`configs/model_config.py:L1440-L1462`），否则会被 `raise ValueError(f"Unknown quantization method: ...")` 挡掉（`model_config.py:L1558-L1563`）。
+3. 在 `ModelConfig` 的 `supported_quantization` 列表里加名字（`configs/model_config.py:L1422`），否则会被 `raise ValueError(f"Unknown quantization method: ...")` 挡掉（`model_config.py:L1558-L1563`）。
 4. 写 `MyLinearMethod(LinearMethodBase)`，实现 `create_weights` / `process_weights_after_loading` / `apply`。若要复用 GPTQ 那套 `dynamic` per-module override，直接用 `get_linear_quant_method(config, layer, prefix, linear_method_cls=MyLinearMethod)`（`layers/quantization/utils.py:L298-L328`）——它会 `deepcopy` config、按正则匹配 `dynamic` 规则改写、负向匹配（`-:` 前缀）时返回 `UnquantizedLinearMethod`。
 
 相关文档：架构总览见 architecture/overview.md，KV 池与 buffer 布局见 deep-dive/memory-pool.md，attention 后端与 KV 视图适配见 deep-dive/attention-backends.md。

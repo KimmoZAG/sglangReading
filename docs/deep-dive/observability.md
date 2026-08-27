@@ -16,8 +16,8 @@ SGLang 的可观测性体系由三层构成：**指标（Metrics）**、**日志
 flowchart LR
     subgraph Scheduler
         SR[Scheduler / ModelRunner]
-        MR[MetricsReporter]
-        PS[PoolStatsObserver]
+        MR[SchedulerMetricsReporter]
+        PS[SchedulerPoolStatsObserver]
     end
     SR --> MR
     PS -->|update_scheduler_stats| MR
@@ -42,7 +42,7 @@ flowchart LR
 
 2. **多进程安全**：SGLang 的 TP/PP/DP worker 通常是多进程，Python Prometheus 客户端在多进程下需走 multiprocess 模式。引擎在导入 `prometheus_client` 之前先设置 `PROMETHEUS_MULTIPROC_DIR`（`common.py:2374-2388`），`/metrics` 路由用 `CollectorRegistry` + `multiprocess.MultiProcessCollector` 聚合（`common.py:2392-2402`）。
 
-3. **DI 可替换**：所有 Collector 继承 `_StatLoggerDIMixin`，其 `_counter_cls`/`_gauge_cls`/`_histogram_cls`/`_summary_cls` 默认为 `None`，即使用标准 `prometheus_client`；嵌入场景（如 Ray Serve LLM）可通过 `ServerArgs.stat_loggers` 注入镜像 Prometheus API 的自定义后端（`metrics_collector.py:215-226`、`201-212`）。
+3. **DI 可替换**：所有 Collector 继承 `_StatLoggerDIMixin`，其 `_counter_cls`/`_gauge_cls`/`_histogram_cls`/`_summary_cls` 默认为 `None`，即使用标准 `prometheus_client`；嵌入场景（如 Ray Serve LLM）可通过 `ServerArgs.stat_loggers` 注入镜像 Prometheus API 的自定义后端（`metrics_collector.py:215-226`）。
 
 4. **指标默认关闭**：`enable_metrics` 默认为 `False`（`server_args.py:1517-1519`），避免生产环境未配置 scrape 时仍承担指标采集开销。开启后由 `SchedulerMetricsCollectorContext.init_new` 决定是否在本 rank 实际注册（`metrics_collector.py:1067-1125`，仅 `attn_tp_rank == 0` 或 `enable_metrics_for_all_schedulers` 时落盘）。
 
@@ -93,16 +93,16 @@ scrape_configs:
 
 ### 指标如何被填充
 
-`MetricsReporter`（位于 `metrics_reporter.py`）在每个调度周期组装一个 `SchedulerStats` 数据类（`metrics_collector.py:64-157`），再调用 `SchedulerMetricsCollector.log_stats(stats)` 批量写入所有 Gauge（`metrics_collector.py:1318-1418`）。其中：
+`SchedulerMetricsReporter`（位于 `metrics_reporter.py`）在每个调度周期组装一个 `SchedulerStats` 数据类（`metrics_collector.py:64-157`），再调用 `SchedulerMetricsCollector.log_stats(stats)` 批量写入所有 Gauge（`metrics_collector.py:1318-1418`）。其中：
 
 - **前缀命中率**由 `cache_hit_rate = effective_hit_tokens / (effective_input_tokens + effective_hit_tokens)` 计算，分子分母剔除了被重新处理的 prefill token（`metrics_reporter.py:630-663`）。
-- **KV 池使用率与绝对计数**由 `PoolStatsObserver.update_scheduler_stats` 写入（证据：`metrics_reporter.py:666` 调用 `pool_stats.update_scheduler_stats(self.stats)`，实现见 `pool_stats_observer.py:120-121`）。
+- **KV 池使用率与绝对计数**由 `SchedulerPoolStatsObserver.update_scheduler_stats` 写入（证据：`metrics_reporter.py:666` 调用 `pool_stats.update_scheduler_stats(self.stats)`，实现见 `pool_stats_observer.py:120-121`）。
 - 累计类指标（token 数、前向耗时、FLOPs）通过 `increment_*` 方法在请求完成 / 每个前向时累加（`metrics_collector.py:1243-1316`）。
 - 启动常量（`max_total_num_tokens`、显存占用、page size、context_len 等）在调度器初始化时通过 `emit_constants` 一次性写入（`metrics_collector.py:1445-1477`，调用点 `scheduler.py:1099`）。
 
 ### 关键日志点
 
-- **控制台状态行**：`MetricsReporter` 的 prefill/decode 周期会打印一行，包含 `#new-seq`、`#new-token`、`#cached-token`、`token_usage_msg`、`#running-req`、`#queue-req` 等（`metrics_reporter.py:561-570` 的 prefill 行；`753` 左右的 decode 行）。`token_usage_msg` 由 `PoolStatsObserver.get_prefill_usage_msg_parts` / `get_decode_usage_msg_parts` 生成（`metrics_reporter.py:551`、`750`）。
+- **控制台状态行**：`SchedulerMetricsReporter` 的 prefill/decode 周期会打印一行，包含 `#new-seq`、`#new-token`、`#cached-token`、`token_usage_msg`、`#running-req`、`#queue-req` 等（`metrics_reporter.py:561-570` 的 prefill 行；`753` 左右的 decode 行）。`token_usage_msg` 由 `SchedulerPoolStatsObserver.get_prefill_usage_msg_parts` / `get_decode_usage_msg_parts` 生成（`metrics_reporter.py:551`、`750`）。
 - **请求级导出**：请求完成时通过 `TokenizerMetricsCollector.observe_one_finished_request` 记录 prompt/generation token、cached token 明细、TTFT/ITL/e2e 时延（`metrics_collector.py:1740-1798`）。若启用 `--export-metrics-to-file`，`RequestMetricsExporterManager` 把每条请求的参数与时间统计写入 `sglang-request-metrics-<小时>.log`（`request_metrics_exporter.py:72-156`）。
 
 ### Profiling：torch.profiler 与自研剖析

@@ -118,10 +118,10 @@ python3 test/run_suite.py --hw cuda --suite base-b-test-1-gpu-small
 
 ### 4.1 常用打印 / 断点位置（指向真实函数）
 
-- **调度主循环**：`Scheduler` 的 `event_loop` / `run_batch` 是请求处理核心，断点可放 `python/sglang/srt/managers/scheduler.py`。
+- **调度主循环**：`Scheduler` 的 `event_loop_normal` / `event_loop_overlap` / `run_batch` 是请求处理核心，断点可放 `python/sglang/srt/managers/scheduler.py`。
 - **前向执行**：`ModelRunner` 的 `forward` / `forward_decode` 是每层实际计算入口，断点可放 `python/sglang/srt/model_executor/model_runner.py`（如 model_runner.py:389 处打印 device / CUDA_VISIBLE_DEVICES 上下文）。
 - **tokenizer / detokenizer 边界**：`TokenizerManager` 与 `DetokenizerManager`（python/sglang/srt/managers/）是请求进出边界，适合看请求体。
-- **自定义对象 dump**：`debug_utils/dumper.py` 的 `Dumper` 类读取 `SGLANG_DUMP_*` 系列环境变量决定是否 dump 中间张量（见 python/sglang/srt/debug_utils/dumper.py:72,85）；`dump_loader.py` 用 `SGLANG_DUMP_LOADER_DIR` 指定加载目录（见 python/sglang/srt/debug_utils/dump_loader.py:61）。
+- **自定义对象 dump**：`debug_utils/dumper.py` 的 `Dumper` 类读取 `DUMPER_*` 系列环境变量决定是否 dump 中间张量（见 python/sglang/srt/debug_utils/dumper.py:72,85，其 `_env_prefix` 返回 `"DUMPER_"`）；`dump_loader.py` 用 `SGLANG_DUMP_LOADER_DIR` 指定加载目录（见 python/sglang/srt/debug_utils/dump_loader.py:61）。
 - **张量 dump hook**：`tensor_dump_forward_hook.py` 用 `TENSOR_DUMP_TOP_LEVEL_MODULE_NAME`（默认 `model`）与 `TENSOR_DUMP_LAYERS_MODULE_NAME`（默认 `layers`）定位要 dump 的模块（见 python/sglang/srt/debug_utils/tensor_dump_forward_hook.py:156-157）。
 
 ### 4.2 attach 调试器 / 进程采样
