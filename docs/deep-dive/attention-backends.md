@@ -151,7 +151,7 @@ MLA **专属**后端在工厂里强制校验：若用户在不支持 MLA 的模�
 
 ### 3.3 How
 
-`resolve_attention_backend_strs`（`python/sglang/srt/model_executor/model_runner_components/attention_backend_setup.py:L155-L176`）返回 `(prefill_str, decode_str)` 二元组；投机解码草稿阶段会用 `draft_attention_backend` 再覆盖。
+`resolve_attention_backend_strs`（`python/sglang/srt/model_executor/model_runner_components/attention_backend_setup.py:L155-L176`）返回 `ResolvedAttentionBackendStr` 结构体（含 `.prefill`/`.decode` 字段，`python/sglang/srt/model_executor/model_runner_components/attention_backend_setup.py:L24` 定义、`:176` 返回）；投机解码草稿阶段会用 `draft_attention_backend` 再覆盖。
 
 `build_attention_backends`（`python/sglang/srt/model_executor/model_runner_components/attention_backend_setup.py:L67-L140`）据此构建 `AttentionBackends` 结构体，并把 `prefill_attention_backend_str` / `decode_attention_backend_str` 烙印到后端实例上。
 
@@ -180,7 +180,7 @@ flowchart LR
 
 `_get_default_attn_backend`（`python/sglang/srt/server_args.py:L5797-L5869`）逻辑概览：
 
-- **MHA**：Hopper → `fa3`；SM100 且 topk≤1 → `trtllm_mha`；否则 → `flashinfer`；兜底 `triton`
+- **MHA**：Hopper → `fa3`（`python/sglang/srt/server_args.py:L5824-L5830`）；SM100 且 topk≤1 → 若 `model_config.has_asymmetric_kv` 为真则 `fa4`，否则 `trtllm_mha`（`python/sglang/srt/server_args.py:L5831-L5843`）；HIP(AMD) → `aiter`（`python/sglang/srt/server_args.py:L5844-L5845`）；MPS → `torch_native`（`python/sglang/srt/server_args.py:L5846-L5847`）；其余 CUDA → `flashinfer`（不支持 attention sink 时 `triton` 兜底，`python/sglang/srt/server_args.py:L5848-L5852`）
 - **MLA**：Hopper → `fa3`；SM100 → `flashinfer`；HIP(AMD) → `aiter`/`triton`；其余 → `triton`
 
 `use_mla_backend`（`python/sglang/srt/server_args.py:L8926-L8930`）检查 `AttentionArch.MLA`，由 `model_config.attention_arch`（`python/sglang/srt/model_executor/model_runner.py:L341`）驱动。
@@ -190,7 +190,7 @@ flowchart LR
 | 字段 | 作用域 | 备注 |
 | --- | --- | --- |
 | `attention_backend` | 全局默认 | `python/sglang/srt/server_args.py:L1668` 起，NS("exec.kernel") |
-| `decode_attention_backend` | decode 阶段覆盖 | `python/sglang/srt/server_args.py:L1684` 起 |
+| `decode_attention_backend` | decode 阶段覆盖 | `python/sglang/srt/server_args.py:L1677` 起（字段声明 `decode_attention_backend: A[`；`NS("exec.kernel")` 为分组附注） |
 | `prefill_attention_backend` | prefill 阶段覆盖 | 与 `decode_attention_backend` 相邻定义 |
 | `speculative_draft_attention_backend` | 投机草稿阶段 | NS("exec.kernel") |
 

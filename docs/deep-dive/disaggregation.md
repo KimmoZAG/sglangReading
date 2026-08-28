@@ -70,9 +70,9 @@ flowchart TB
 
 ## 2. Why：为什么需要 PD 分离
 
-**1) 计算特性解耦。** Prefill 是 compute-bound 的矩阵乘（prompt 长、可大 batch 并行），decode 是 memory-bandwidth-bound 的小 batch 自回归。两者对 batch size、调度策略、显存占用的偏好相反；拆开后可独立扩缩容与调参（`python/sglang/srt/server_args.py:3061` 的 `--disaggregation-mode`）。
+**1) 计算特性解耦。** Prefill 是 compute-bound 的矩阵乘（prompt 长、可大 batch 并行），decode 是 memory-bandwidth-bound 的小 batch 自回归。两者对 batch size、调度策略、显存占用的偏好相反；拆开后可独立扩缩容与调参（`python/sglang/srt/server_args.py:3063` 的 `--disaggregation-mode`）。
 
-**2) 复用 KV，而不是重复算。** 分离后 prefill 算一次 KV，通过 RDMA 直接搬到 decode 显存，省去 decode 端重算 prompt 的开销；同时 decode 端可开启 `--disaggregation-decode-enable-radix-cache`（`python/sglang/srt/server_args.py:3088`）复用前缀 KV，进一步减少跨实例传输量。
+**2) 复用 KV，而不是重复算。** 分离后 prefill 算一次 KV，通过 RDMA 直接搬到 decode 显存，省去 decode 端重算 prompt 的开销；同时 decode 端可开启 `--disaggregation-decode-enable-radix-cache`（`python/sglang/srt/server_args.py:3086`）复用前缀 KV，进一步减少跨实例传输量。
 
 **3) 规避统一调度的耦合。** 在统一实例里 prefill 与 decode 共用一棵 radix 树与同一套显存预算；分离后两者用各自的 `DecodeReqToTokenPool`（`python/sglang/srt/disaggregation/decode.py:112`）做独立的预分配账本，使 decode 能在 prefill 尚未完成时就占住显存槽位（详见 §5 坑）。
 
@@ -110,7 +110,7 @@ sequenceDiagram
 
 - **`PrefillBootstrapQueue.create_sender(self, req, num_kv_heads) -> bool`**（`python/sglang/srt/disaggregation/prefill.py:299`）：为请求创建 `KVSender`，调用 `get_kv_class(backend, KVClassType.SENDER)` 得到具体类，随后入 bootstrap 队列；若超过 KV 容量则返回 `False`。
 - **`PrefillBootstrapQueue.pop_bootstrapped(...)`**（`python/sglang/srt/disaggregation/prefill.py:383`）：轮询队列里每个 sender 的 `poll()`（`KVPoll` 见 §3.3），把完成握手的请求移入 `waiting_queue`。
-- **`SchedulerDisaggregationPrefillMixin.event_loop_normal_disagg_prefill`**（`python/sglang/srt/disaggregation/prefill.py:568`）：prefill 的事件循环；`process_batch_result_disagg_prefill`（`python/sglang/srt/disaggregation/prefill.py:658`）在 prefill 前向完成后调用 `send_kv_chunk`。
+- **`SchedulerDisaggregationPrefillMixin.event_loop_normal_disagg_prefill`**（`python/sglang/srt/disaggregation/prefill.py:569`）：prefill 的事件循环；`process_batch_result_disagg_prefill`（`python/sglang/srt/disaggregation/prefill.py:658`）在 prefill 前向完成后调用 `send_kv_chunk`。
 - **`SchedulerDisaggregationPrefillMixin.send_kv_chunk(self, req, last_chunk, end_idx)`**（`python/sglang/srt/disaggregation/prefill.py:1139`）：按页（page）切分待传 KV 索引，调用 `req.disagg_kv_sender.send(page_indices, state_indices, num_kv_tokens)`。支持分块（chunked prefill）多次发送：`last_chunk=True` 时附带 aux/state 元数据，并把请求挂入 `disagg_prefill_inflight_queue`。
 - **`process_disagg_prefill_inflight_queue`**（`python/sglang/srt/disaggregation/prefill.py:830`）：非阻塞轮询 inflight 请求；`poll()==Success` 后 `release_kv_cache(req, self.tree_cache)` 解锁 radix 树并回包给客户端。
 
@@ -221,9 +221,9 @@ decode 侧 `process_decode_queue`（`python/sglang/srt/disaggregation/decode.py:
 
 ### 6.3 PD 分离下 radix 缓存的边界
 
-- **prefix 复用只发生在 decode 侧**（开关 `--disaggregation-decode-enable-radix-cache`，`python/sglang/srt/server_args.py:3088`）。decode 在 `pop_preallocated` 用 `_match_prefix_and_lock` 匹配自身 radix 树（`python/sglang/srt/disaggregation/decode.py:561`），算出 `total_prefix_len` 作为 `decode_prefix_len` 回传给 prefill，prefill 只传 delta 部分（`python/sglang/srt/disaggregation/prefill.py:344` 的 `decode_prefix_len`）。
+- **prefix 复用只发生在 decode 侧**（开关 `--disaggregation-decode-enable-radix-cache`，`python/sglang/srt/server_args.py:3086`）。decode 在 `pop_preallocated` 用 `_match_prefix_and_lock` 匹配自身 radix 树（`python/sglang/srt/disaggregation/decode.py:561`），算出 `total_prefix_len` 作为 `decode_prefix_len` 回传给 prefill，prefill 只传 delta 部分（`python/sglang/srt/disaggregation/prefill.py:344` 的 `decode_prefix_len`）。
 - **prefill 侧对“已传给 decode 的 KV”不能复用**：prefill 在 inflight 完成后 `release_kv_cache(req, self.tree_cache)`（`python/sglang/srt/disaggregation/prefill.py:886`）解锁整棵 radix 树——prefill 的 radix 命中只能省 prefill 自身重算，不能跨实例省传输。
-- **DSV4 NPU（C4）限制：** 当前 PD + decode 侧 radix/HiCache 不支持前缀缓存，检测到 `total_prefix_len != 0` 且带 `c4_attn_allocator` 时直接抛 `RuntimeError`（`python/sglang/srt/disaggregation/decode.py:1105`）。
+- **DSV4 NPU（C4）限制：** 当前 PD + decode 侧 radix/HiCache 不支持前缀缓存，检测到 `total_prefix_len != 0` 且带 `c4_attn_allocator` 时直接抛 `RuntimeError`（`python/sglang/srt/disaggregation/decode.py:1106`）。
 - **retracted / rebootstrap 请求不走 decode radix 缓存**：`use_decode_radix_cache` 显式排除 `is_rebootstrap`（`python/sglang/srt/disaggregation/decode.py:1029`），因为前缀 KV 需在更新权重后由 prefill 重算。
 
 ### 6.4 TP / dtype / page_size 必须两端一致

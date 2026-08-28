@@ -163,7 +163,7 @@ DeepSeek-V3 复用 V2 文件，类名为 `DeepseekV3ForCausalLM`（仅 `pass`，
 - `q_b_proj` / `kv_b_proj`（`ColumnParallelLinear`，按 attn TP 切分）：把低秩表示上投影回各注意力头的维度。
 - `o_proj`（`RowParallelLinear`）。
 
-注意它**同时持有两套 `RadixAttention`**：`attn_mqa`（`num_kv_heads=1`，head_dim=`kv_lora_rank`，对应压缩后的 latent）与 `attn_mha`（`num_kv_heads=num_local_heads`，head_dim=完整 `qk_nope+v`，对应解压后的标准 MHA，用于某些后端）。见 `python/sglang/srt/models/deepseek_v2.py:L1893-L1925`。运行时由 forward mixin 选择其中一条路径。
+注意它**同时持有两套 `RadixAttention`**：`attn_mqa` = `RadixAttention(num_local_heads, kv_lora_rank + qk_rope_head_dim, num_kv_heads=1, v_head_dim=kv_lora_rank)`（head_dim 为 `kv_lora_rank + qk_rope_head_dim`，而压缩 latent 的维度体现在 `v_head_dim=kv_lora_rank`，并非 head_dim）；`attn_mha` = `RadixAttention(num_local_heads, qk_nope_head_dim + qk_rope_head_dim, num_kv_heads=num_local_heads, v_head_dim=v_head_dim)`（head_dim 为 `qk_nope_head_dim + qk_rope_head_dim`）。见 `python/sglang/srt/models/deepseek_v2.py:L1893-L1925`。运行时由 forward mixin 选择其中一条路径。
 
 > **[OPEN]** `DeepseekV2AttentionMLA` 同时继承 `DeepseekMHAForwardMixin`/`DeepseekMLAForwardMixin` 等多个 forward mixin（见 `deepseek_v2.py:L1711-L1718`），具体选择哪条 forward 路径依赖运行时后端与 `maybe_use_decode_attn_tp` 等上下文；其完整分派逻辑跨多个 mixin 文件，本文未逐一展开，建议后续补充 mla_forward 分派图。
 
@@ -233,7 +233,7 @@ flowchart TD
 1. **TP/KV head 复制**：当 `num_kv_heads < tp_size` 时 KV head 被复制而非切分（`python/sglang/srt/models/llama.py:L162-L171`），自定义模型若假设"总是切分"会出错。
 2. **stacked params 必须先判专家**：legacy loader 在处理 `mlp.experts.*` 前必须 `continue` 跳过 stacked 映射，否则会把 `gate_proj`→`gate_up_proj` 后再被 expert 映射二次改写而崩溃（`python/sglang/srt/models/llama.py:L714-L726`、DeepSeek 同款注释 `python/sglang/srt/models/deepseek_common/deepseek_weight_loader.py:L279-L286`）。
 3. **PP 层范围过滤**：`load_weights` 必须依据 `start_layer/end_layer` 跳过非本 rank 层，否则多卡下会尝试加载不存在的参数（`llama.py:L688-L697`）。
-4. **tie_word_embeddings**：开启时 `lm_head` 复用 `embed_tokens`，loader 需跳过 `lm_head.weight` 并/或在 v2 路径显式拷贝（`llama.py:L706-L707`、`deepseek_v2.py:L769-L777`）。
+4. **tie_word_embeddings**：开启时 `lm_head` 复用 `embed_tokens`，loader 需跳过 `lm_head.weight` 并/或在 v2 路径显式拷贝（`llama.py:L706-L707`、`deepseek_v2.py:L2969-L2972`）。
 5. **量化权重 dtype 对齐**：FP8/FP4/NVFP4 的张量布局（block scale、interleave）由各自 `weight_loader` 负责，模型层若错误地用 `default_weight_loader` 直接 copy 会因形状不符而报错。
 6. **MLA 的双 RadixAttention**：`attn_mqa` 与 `attn_mha` 维度语义不同，后端切换时务必选对路径，否则 KV cache 形状与计算逻辑不匹配。
 

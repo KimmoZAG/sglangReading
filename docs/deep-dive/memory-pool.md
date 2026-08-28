@@ -101,13 +101,13 @@ classDiagram
 `KVCacheConfigurator._build_token_to_kv_pool_allocator` 根据 `get_schedule().page_size` 选择分配器类型：
 
 - 当 `page_size == 1 and not get_parallel().dcp_enabled` 时，使用**非 paged** 的 `TokenToKVPoolAllocator`；
-- 否则使用** paged** 的 `PagedTokenToKVPoolAllocator`（其 `page_size = get_schedule().page_size`）。
+- 否则使用** paged** 的 `PagedTokenToKVPoolAllocator`（其 `page_size = get_schedule().page_size * get_parallel().attn_dcp_size`（dcp 启用时））。
 
 证据锚点：`python/sglang/srt/mem_cache/kv_cache_configurator.py#L1611-L1724`
 
 `page_size > 1` 来自 `--page-size` 等调度参数（典型用于 sliding-window attention 等需要页式管理的场景，如 DSV4-NPU 要求 `page_size == 256`）。paged 分配器能让一次分配的输出“页对齐”，从而与某些注意力后端（如 `trtllm_mha`、HiCache 的分层页表）直接对接；非 paged 则是 `page_size == 1` 的退化形式，分配最小粒度即为单个 token，逻辑最简单。
 
-> **[OPEN]** `PagedTokenToKVPoolAllocator` 在非 DCP 路径下的 `page_size` 来自 `get_schedule().page_size`，但 `dcp_enabled` 时 `allocator.page_size` 会被放大为 `page_size * dcp_size`（见 `kv_cache_builder.py` 中 `params.page_size` 的处理）。dcp 与 paged 同时启用时两段代码如何协调 `free_pages` 的真实容量，本文档尚未逐行验证，需进一步确认 `MultiEndedAllocator` 的行为。
+> **[OPEN]** `PagedTokenToKVPoolAllocator` 在非 DCP 路径下的 `page_size` 来自 `get_schedule().page_size`，但 `dcp_enabled` 时 `allocator.page_size` 会被放大为 `page_size * dcp_size`（见 `kv_cache_configurator.py:_build_token_to_kv_pool_allocator` 中 `page_size=get_schedule().page_size * get_parallel().attn_dcp_size`）。dcp 与 paged 同时启用时两段代码如何协调 `free_pages` 的真实容量，本文档尚未逐行验证，需进一步确认 `MultiEndedAllocator` 的行为。
 
 ### 2.4 为什么没有引用计数，而是显式 free
 
