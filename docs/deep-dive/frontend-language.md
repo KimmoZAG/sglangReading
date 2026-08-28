@@ -39,7 +39,7 @@ def story(s, topic):
     s += "The genre is" + select("genre", ["comedy", "horror"])
 ```
 
-`SglFunction.__init__` 用 `inspect.getfullargspec` 解析参数名，并强制第一个参数为 `"s"`（`python/sglang/lang/ir.py:L141-L152`）。它持有 `func`（原始 callable）、`num_api_spec_tokens`（投机执行开关）、`bind_arguments`（部分参数绑定）。
+`SglFunction.__init__` 用 `inspect.getfullargspec` 解析参数名，并强制第一个参数为 `"s"`（`python/sglang/lang/ir.py:L142-L152`）。它持有 `func`（原始 callable）、`num_api_spec_tokens`（投机执行开关）、`bind_arguments`（部分参数绑定）。
 
 IR 节点统一继承自 `SglExpr`（`python/sglang/lang/ir.py:L327-L359`），每个节点带 `node_id`、`prev_node` 形成链式依赖；`__add__`/`__radd__` 把两个 IR 表达式合并成 `SglExprList`（`concatenate_ir`）。这才是「程序如何表示」的核心——程序在解释路径下表现为**实时执行的 Python 调用流**，在追踪路径下表现为一棵 `SglExpr` 图。
 
@@ -94,7 +94,7 @@ fork 的动机是并行采样同一个前缀的多个续写（如 self-consisten
 2. 构造 `StreamExecutor`（后台 worker 线程 + 指令队列）与 `ProgramState`。
 3. 在（可选）线程中执行 `program.func(state, *func_args, **func_kwargs)`，结束后 `stream_executor.end()` 并 `sync()`。
 
-`run_batch`（`python/sglang/lang/interpreter.py:L93-L181`）则用 `ThreadPoolExecutor` 横向铺开一批参数；当 `global_config.enable_precache_with_tracing` 且批大小 > 1 时，先 `cache_program` 预缓存公共前缀（`interpreter.py:L242-L247`），再并发执行。
+`run_program_batch`（`python/sglang/lang/interpreter.py:L93-L181`）则用 `ThreadPoolExecutor` 横向铺开一批参数；当 `global_config.enable_precache_with_tracing` 且批大小 > 1 时，先 `cache_program` 预缓存公共前缀（`interpreter.py:L242-L247`），再并发执行。
 
 ### 3.2 解释执行内核：`StreamExecutor` 的队列 + 后台线程
 
@@ -106,7 +106,7 @@ fork 的动机是并行采样同一个前缀的多个续写（如 self-consisten
 
 ### 3.3 约束选择：`select` 的后端实现
 
-`select` 不走「让模型自由生成再匹配」，而是**基于 logprob 的评分选择**。`SglFunction` 在 `api.py:102-L108` 中若 `gen` 带 `choices` 会自动转成 `SglSelect`；`RuntimeEndpoint.select`（`python/sglang/lang/backend/runtime_endpoint.py:L248-L315`）的流程：
+`select` 不走「让模型自由生成再匹配」，而是**基于 logprob 的评分选择**。`gen()`（`python/sglang/lang/api.py:L75-L139`）传入 `choices` 时自动转成 `SglSelect`；`RuntimeEndpoint.select`（`python/sglang/lang/backend/runtime_endpoint.py:L248-L315`）的流程：
 
 1. 先以 `max_new_tokens=0` 跑一次拿到 `prompt_len`（token healing 起点）。
 2. 对每个 choice 构造 `text + choice`，`return_logprob=True` 请求，取各 choice 的 `input_token_logprobs`/`output_token_logprobs`。
@@ -133,7 +133,7 @@ fork 的动机是并行采样同一个前缀的多个续写（如 self-consisten
 
 ### 3.5 后端交互：RuntimeEndpoint 的 HTTP 协议
 
-前端与 srt 引擎的边界在 `BaseBackend`（`python/sglang/lang/backend/base_backend.py`）。本地推理用 `Runtime`（`python/sglang/lang/backend/runtime_endpoint.py:L366-L436`）——它在进程内 `launch_server` 拉起 srt HTTP 服务，并把 `.endpoint` 暴露为 `RuntimeEndpoint`；远端则直接 `RuntimeEndpoint(base_url)`。
+前端与 srt 引擎的边界在 `BaseBackend`（`python/sglang/lang/backend/base_backend.py`）。本地推理用 `Runtime`（`python/sglang/lang/backend/runtime_endpoint.py:L356-L436`）——它在进程内 `launch_server` 拉起 srt HTTP 服务，并把 `.endpoint` 暴露为 `RuntimeEndpoint`；远端则直接 `RuntimeEndpoint(base_url)`。
 
 `RuntimeEndpoint` 的关键方法（锚点）：
 
@@ -153,7 +153,7 @@ fork 的动机是并行采样同一个前缀的多个续写（如 self-consisten
 
 变量绑定有三种机制：
 
-1. **`gen`/`select` 命名绑定**：`_execute_gen` 把生成结果写入 `variables[name]`，并 `variable_event[name].set()`；后续 `s[var_name]`（`ProgramState.__getitem__`）经 `get_var` 阻塞等待事件后返回值（`interpreter.py:L354-L357`、`:1014-L1015`）。
+1. **`gen`/`select` 命名绑定**：`_execute_gen` 把生成结果写入 `variables[name]`，并 `variable_event[name].set()`；后续 `s[var_name]`（`ProgramState.__getitem__`，`python/sglang/lang/interpreter.py:L1029-L1030`）经 `get_var`（`python/sglang/lang/interpreter.py:L1014-L1015`）阻塞等待事件后返回值（`interpreter.py:L354-L357` 为类级 `get_var`）。
 2. **`SglVariable` IR 节点**：在追踪图中，`SglVariable(name, source)`（`ir.py:L574-L581`）指向生成源，使 IR 图保留「哪个变量来自哪次生成」的依赖，供 `print_graph_dfs` 打印。
 3. **`var_scope` 区间捕获**：`SglVarScopeBegin/End`（`ir.py:L584-L599`）在 `begin` 时记录 `len(text_)`，在 `end` 时把 `[begin_pos:]` 的子串存为变量（`interpreter.py:L719-L724`），用于「捕获这一段生成的原文而不单独命名」。
 

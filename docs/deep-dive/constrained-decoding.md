@@ -92,7 +92,7 @@ graph TD
 
 xgrammar 的编译分发：`dispatch_json`（`python/sglang/srt/constrained/xgrammar_backend.py:L337-L350`）对 `"$$ANY$$"` 走 `compile_builtin_json_grammar`（接受任意合法 JSON），否则 `compile_json_schema(schema=..., any_whitespace=...)`；`dispatch_regex`/`dispatch_ebnf`/`dispatch_structural_tag` 分别对应 `compile_regex`/`compile_grammar`/`compile_structural_tag`（L352-L399）。编译异常统一转为 `InvalidGrammarObject`（L347-L349 等）。
 
-**outlines（字节级 FSM）**：`OutlinesGrammar`（`python/sglang/srt/constrained/outlines_backend.py:L42-L111`）基于 `RegexGuide`，把 JSON Schema **先转成 regex**（`dispatch_json` → `build_regex_from_schema`，L166-L175），再在字节级状态机上游走：
+**outlines（字节级 FSM）**：`OutlinesGrammar`（`python/sglang/srt/constrained/outlines_backend.py:L42-L111`）基于 `RegexGuide`，把 JSON Schema **先转成 regex**（`dispatch_json` → `build_regex_from_object`，L166-L175），再在字节级状态机上游走：
 
 - `fill_vocab_mask`（L65-L71）调用 `guide.get_next_instruction(self.state).tokens` 拿到"本状态可接受的 token 列表"，再用 `scatter_` 把 vocab_mask 中这些位置置 0、其余置 1（即 1 = 屏蔽）。
 - `apply_vocab_mask`（L74-L75）用 `logits.masked_fill_(vocab_mask, float("-inf"))` 完成屏蔽。
@@ -110,7 +110,7 @@ xgrammar 的编译分发：`dispatch_json`（`python/sglang/srt/constrained/xgra
 
 随后在 `apply_logits_bias` 中，`python/sglang/srt/sampling/sampling_batch_info.py:L296-L297` 执行 `self.grammar_mask.apply(logits)`，而 `GrammarMask.apply`（`python/sglang/srt/constrained/base_grammar_backend.py:L152-L153`）只是转发到 `grammar.apply_vocab_mask`。**顺序关键**：grammar mask 在 additive/scaling penalty、logit_bias 之后、采样之前应用（L283-L300），因此合法 token 集不会被后续 bias 破坏，且屏蔽对所有采样策略（greedy/top-p/温度）一致生效。
 
-采样拿到 `next_token_id` 后，调度器在 `batch_result_processor.py` 的 `_apply_prefill_grammar`（L574-L592）与 decode 路径（L721）调用 `req.grammar.accept_token(next_token_id)` 推进 FSM；prefill 阶段还会先判断 `already_advanced`（投机 overlap 路径已由 grammar barrier 提前推进）以避免重复 accept（L580-L583）。`accept_token` 失败会被捕获并 `FINISH_ABORT`（L584-L591），防止非法 token 污染状态机。
+采样拿到 `next_token_id` 后，调度器在 `python/sglang/srt/managers/scheduler_components/batch_result_processor.py` 的 `_apply_prefill_grammar`（L574-L592）与 decode 路径（L721）调用 `req.grammar.accept_token(next_token_id)` 推进 FSM；prefill 阶段还会先判断 `already_advanced`（投机 overlap 路径已由 grammar barrier 提前推进）以避免重复 accept（L580-L583）。`accept_token` 失败会被捕获并 `FINISH_ABORT`（L584-L591），防止非法 token 污染状态机。
 
 ### 3.5 JSON Schema 模式如何保证合法且高效（token 级预查）
 

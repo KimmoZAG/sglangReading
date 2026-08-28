@@ -158,7 +158,7 @@ encoder_cached.append(
 模型 `forward` 调用 `general_mm_embed_routine`（`python/sglang/srt/managers/mm_utils.py:609-736`）：
 
 - 仅当“非解码 / 非 target_verify 且 `contains_mm_inputs()`”时进入多模态分支；
-- 经 `embed_mm_inputs`（或自适应分流的 `_embed_mm_inputs_with_split`）把每个 item 的 `feature` 用 `get_image_feature` 等模型方法编码为视觉嵌入，并**替换** `input_ids` 中对应占位区间的嵌入（`python/sglang/srt/multimodal/mm_utils.py:642-685`）；
+- 经 `embed_mm_inputs`（或自适应分流的 `_embed_mm_inputs_with_split`）把每个 item 的 `feature` 用 `get_image_feature` 等模型方法编码为视觉嵌入，并**替换** `input_ids` 中对应占位区间的嵌入（`python/sglang/srt/managers/mm_utils.py:368`）；
 - 完成后把 GPU 特征 offload 到 CPU 以便 chunked-prefill 后续分片复用（`python/sglang/srt/managers/mm_utils.py:698-718`），并清空 `forward_batch.mm_inputs`。
 
 以 Qwen2-VL 为例（`python/sglang/srt/models/qwen2_vl.py:505-514`）：
@@ -174,7 +174,7 @@ def get_image_feature(self, items):
 
 - **占位 token 在词表之外**：前缀树按 token id 匹配，因此不同图像的占位 id 不同 → 不会误前缀合并（隔离）。但也意味着**相同图像 + 不同文本**仍可共享前缀（占位 id 相同），此时 KV 与编码器输出均可复用。
 - **与 Radix 前缀复用的冲突**：RadixCache 只缓存 KV，**不缓存视觉嵌入**。当某个前缀被命中、且其内部包含图像占位 token 时，不能在“仅前向新 token”的 extend 中重新产生这些图像嵌入——这正是 `encoder_cached` 用 `len(req.prefix_indices) >= num_image_tokens` 来判定的原因（`python/sglang/srt/managers/schedule_batch.py:2252-2255`）。若图像被 chunked-prefill 切到“部分在命中前缀、部分在新片段”，既无法整体跳过也无法整体重算，需要上游保证图像 token 不被前缀边界切断。
-- **DP-attention 下编码器负载均衡**：`get_dp_encoder_lb_assignment`（`python/sglang/srt/multimodal/mm_utils.py:420`）按 item 大小做均衡分配，并用 `local_item_indices` 确保每 rank 只物化自己负责的图像，否则 `EncoderPreprocessOutput.materialize_for_rank` 会越界报错（`python/sglang/srt/multimodal/encoder_preprocessing.py:66-85`）。
+- **DP-attention 下编码器负载均衡**：`get_dp_encoder_lb_assignment`（`python/sglang/srt/multimodal/mm_utils.py:420`）按 item 大小做均衡分配，并用 `local_item_indices` 确保每 rank 只物化自己负责的图像，否则 `EncoderPreprocessOutput.materialize_for_rank` 会越界报错（`python/sglang/srt/multimodal/encoder_preprocessing.py:87`）。
 - **LoRA 与多模态的边界**：视觉塔不参与 LoRA（`should_apply_lora` 跳过 `visual`），但语言模型部分仍可套 LoRA；若同时开 LoRA 与多模态，需注意两者的 `target_modules` 不应覆盖到视觉相关子模块。
 - **特征张量形状必须一致**：`materialize_multimodal_features`（`python/sglang/srt/multimodal/mm_utils.py:61-111`）要求所有 item 在除首维外形状一致，否则报错——不同分辨率图像经 anyres 展开后 patch 数不同是允许的（仅首维不同）。
 
@@ -258,7 +258,7 @@ flowchart LR
 - `BaseMultimodalProcessor.process_and_combine_mm_data(...)`（`python/sglang/srt/multimodal/processors/base_processor.py:1537`）
 - `MultimodalDataItem.set_pad_value(self)`（`python/sglang/srt/managers/schedule_batch.py:373`）
 - `ScheduleBatch.prepare_encoder_info_extend(self, input_ids, seq_lens)`（`python/sglang/srt/managers/schedule_batch.py:2237`）
-- `general_mm_embed_routine(input_ids, forward_batch, language_model, ...)`（`managers/mm_utils.py:609`）
+- `general_mm_embed_routine(input_ids, forward_batch, language_model, ...)`（`python/sglang/srt/managers/mm_utils.py:609`）
 - `Qwen2VLForConditionalGeneration.get_image_feature(self, items)`（`python/sglang/srt/models/qwen2_vl.py:505`）
 
 > **[OPEN]** 关于 RadixCache 对“图像占位 token（词表外 hash）”的确切处理：当前 `mem_cache/radix_cache.py` 内未检索到对 multimodal / `pad_value` 的特殊分支（已在 `radix_cache.py` 全文 grep 无命中），因此前缀匹配完全依赖 token id 字面相等。需要结合 `tree_cache.match_prefix` 在含图像 token 的具体路径上进一步确认：当命中前缀边界恰好落在图像占位区间内部时，调度器/`extend` 是否额外保证图像 token 不被切断、以及 `encoder_cached` 的 `len(prefix_indices) >= num_image_tokens` 判定是否为唯一防线。详见附录 `_openq_lora-multimodal.md`。
