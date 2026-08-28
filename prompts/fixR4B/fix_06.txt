@@ -1,0 +1,44 @@
+你是 SGLang 文档修复工程师。只改【一个】文档文件里的源码锚点/深度/mermaid 错误，不改动其它内容，不编造。
+
+【唯一事实来源 SSOT】/home/kimmo/develop/sglang（commit e1c4db9621f7c4203ee9becd5d5456d4e6bf54f7）。所有修正必须先用 grep/Read 在 SSOT 实测确认。
+
+【目标文件（绝对路径）】/home/kimmo/develop/sglangReading/docs/deep-dive/sampling.md
+
+【本文件被评阅出的问题清单】
+
+### 问题 1（SEVERITY=high TYPE=anchor_fake）
+- DETAIL: L60 引用 `custom_logit_processor.py:15-L21` 标注 `custom_params`。实测 `python/sglang/srt/sampling/custom_logit_processor.py:15-L21` 是 `def _cache_from_str(json_str: str):`（dill/orjson 辅助函数）；`CustomLogitProcessor` 抽象类定义在 `:24`（`class CustomLogitProcessor(ABC)`），而 `custom_params` 字段实际在 `python/sglang/srt/sampling/sampling_params.py:82`。符号与路径双重错配。
+- SUGGESTED_FIX: `custom_params` 锚点改为 `sampling_params.py:82`；`CustomLogitProcessor` 锚点改为 `custom_logit_processor.py:24-L44`（该文 L99 已正确给出，须与 L60 自洽）。
+
+### 问题 2（SEVERITY=medium TYPE=symbol_mismatch）
+- DETAIL: L86 引用 `python/sglang/srt/sampling/penaltylib/orchestrator.py:25-L29` 为 `prepare_if_required` 自判。实测 `:25-L29` 是 `BatchedPenalizerOrchestrator.__init__` 中设置 `is_required` 属性，真正的 `def prepare_if_required` 在 `:201`。
+- SUGGESTED_FIX: 改为 `orchestrator.py:201`（`def prepare_if_required`）。
+
+### 问题 3（SEVERITY=low TYPE=anchor_drift）
+- DETAIL: L49 表 `sampler.py:282` 标注 `top_k`，但 `:282` 是 flashinfer 调用尾部实参 `filter_apply_order="joint",`；`top_k` 截断逻辑在 `:277-L280`。L152（§7）`sampler.py:561-L608` 标注 `top_k_top_p_min_p_sampling_from_probs_torch`，但其 `def` 在 `:563`（561 为空行）。L79 与 §7/图对 `_sample_from_probs` 一处引 `:210`（调用点）一处引 `:246`（定义），内部不一致。
+- SUGGESTED_FIX: `top_k` → `sampler.py:277`；`top_k_top_p_min_p_sampling_from_probs_torch` → `sampler.py:563-L608`；统一 `_sample_from_probs` 指针为 `:246`（定义）。
+
+### 问题 4（SEVERITY=low TYPE=missing_prefix）
+- DETAIL: 正文大量裸文件名锚点（`sampling_params.py`、`sampling_batch_info.py`、`sampler.py`、`penaltylib/orchestrator.py`、`penaltylib/frequency_penalty.py`、`penaltylib/presence_penalty.py`、`penaltylib/repetition_penalty.py`、`penaltylib/min_new_tokens.py`、`custom_logit_processor.py`、`model_runner.py`、`schedule_batch.py`）。§7 虽补了完整路径，但正文与表格仍为裸名。
+- SUGGESTED_FIX: 补全为 `python/sglang/srt/sampling/sampling_params.py`、`python/sglang/srt/sampling/sampling_batch_info.py`、`python/sglang/srt/layers/sampler.py`、`python/sglang/srt/sampling/penaltylib/*.py`、`python/sglang/srt/sampling/custom_logit_processor.py`、`python/sglang/srt/model_executor/model_runner.py`、`python/sglang/srt/managers/schedule_batch.py`。
+
+
+【修复步骤（严格执行）】
+1) 用 Read 工具读完整篇 /home/kimmo/develop/sglangReading/docs/deep-dive/sampling.md。
+2) 对清单里每一条：
+   - 用 `grep -n "<符号>" /home/kimmo/develop/sglang/python/sglang/srt/<对应文件>` 找到该符号的真实定义行（若 SUGGESTED_FIX 已给正确锚点，仍要用 grep 复核行号是否真实）。
+   - 在文档里定位那条错误的锚点字符串（从 DETAIL 引用的错误锚点原文），用 Edit 工具替换为【已 grep 复核】的正确锚点或修订文本。
+   - 规则：
+     * 路径错误（如 engine.py 应为 scheduler.py）：改正路径与行号。
+     * 区间颠倒（如 986-917）：改为升序 917-986。
+     * 符号名不匹配（如 wait_for_ready 实为 _wait_for_scheduler_ready）：改正符号名，行号保留建议值并复核。
+     * 缺前缀的裸文件名（如 `server_args.py:L218`）：补成完整相对 SSOT 路径 `python/sglang/srt/server_args.py:L218`（若该模块确实在 srt 下；用 ls/grep 确认存在）。
+     * 占位/非精确锚点（如 `Lxxx+`）：用 grep 算出真实行号后替换。
+     * 深度问题（shallow）：在对应段落补充真实代码路径、行号锚点与具体权衡，删除无信息量空话；必须基于 SSOT 实测，不得编造。
+     * mermaid 虚构类名（mermaid_fake）：把图中不存在的类/函数名改为 SSOT 中真实存在的名称（先 grep `class <名>`/`def <名>` 确认）。
+3) 严禁新增/删除非必要内容；保持 mermaid 代码块完整、不引入新 TODO。
+4) 不运行 mkdocs build（本机沙箱会误报）；只保证事实准确。
+
+【验收（完成后）】
+- 报告你改了哪些地方（旧→新）到文件：/home/kimmo/develop/sglangReading/docs/../reports/fixR4_report_deep-dive_sampling.md.md
+- 再次 grep 复核：每条修正后的锚点行号处确为文中引用的符号。

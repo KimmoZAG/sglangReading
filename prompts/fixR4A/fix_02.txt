@@ -1,0 +1,71 @@
+你是 SGLang 文档修复工程师。只改【一个】文档文件里的源码锚点/深度/mermaid 错误，不改动其它内容，不编造。
+
+【唯一事实来源 SSOT】/home/kimmo/develop/sglang（commit e1c4db9621f7c4203ee9becd5d5456d4e6bf54f7）。所有修正必须先用 grep/Read 在 SSOT 实测确认。
+
+【目标文件（绝对路径）】/home/kimmo/develop/sglangReading/docs/dataflow/sequence-diagrams.md
+
+【本文件被评阅出的问题清单】
+
+### 问题 1（SEVERITY=high TYPE=anchor_fake）
+- DETAIL: L73、L153 在 mermaid/正文写 `ScheduleBatch.init_new(can_run_list) [:3386]`。实测 `ScheduleBatch.init_new` 定义在 `python/sglang/srt/managers/schedule_batch.py:2184`；`:3386` 是 `def __str__(self):`。锚点所指标识符与真实符号错位。
+- SUGGESTED_FIX: 改为 `python/sglang/srt/managers/schedule_batch.py:2184`。
+
+### 问题 2（SEVERITY=high TYPE=anchor_fake）
+- DETAIL: L76、L110 写 `ModelRunner.forward [:589/:609]`、`forward + sample [:609/:651]`。实测 `ModelRunner.forward` 在 `python/sglang/srt/model_executor/model_runner.py:1510`，`sample` 在 **:1771**；文件仅 2112 行，:589/:609/:651 均为无关行（:609 为 `)`、:651 为 `remote_instance_weight_transporter…`）。
+- SUGGESTED_FIX: 改为 `model_runner.py:1510`（forward）、`:1771`（sample）。
+
+### 问题 3（SEVERITY=high TYPE=anchor_fake）
+- DETAIL: L80 写 `maybe_cache_unfinished_req / cache_finished_req [:280/:458]`。实测 `radix_cache.py:280` 是 `def release_host(self):`（TreeNode 方法），并非 `maybe_cache_unfinished_req`；`maybe_cache_unfinished_req` 实际是 `python/sglang/srt/mem_cache/common.py:98` 的模块级函数（在 batch_result_processor.py 内被调用）：`cache_finished_req` 的 :458 部分正确。
+- SUGGESTED_FIX: 改为 `python/sglang/srt/mem_cache/common.py:98`（maybe_cache_unfinished_req）+ `radix_cache.py:458`（cache_finished_req）。
+
+### 问题 4（SEVERITY=high TYPE=anchor_fake）
+- DETAIL: L37 写 `PrefillAdder` 构造接收 `max_prefill_tokens` 与 `chunked_prefill_size`（`schedule_policy.py:3259-3260`）。实测 `python/sglang/srt/managers/schedule_policy.py` 仅 **1500 行**，:3259-3260 超出文件范围；相关参数仅以注释出现在 :1269/:1335。
+- SUGGESTED_FIX: 定位 `PrefillAdder.__init__` 真实行号（请 grep `def __init__` 于 schedule_policy.py 中 PrefillAdder，约 :1000 附近）后替换；删除越界区间。
+
+### 问题 5（SEVERITY=medium TYPE=anchor_drift）
+- DETAIL: L79、L112 写 `process_batch_result_prefill [:3917/:193]`、`process_batch_result_decode [:3917/:805]`。实测 `scheduler.py:3917` = `def process_batch_result(`（通用分发器），并非 `_prefill`/`_decode` 具体方法；`:193`/`：805` 分别是 `python/sglang/srt/managers/scheduler_components/batch_result_processor.py` 中 `process_batch_result_prefill`(:193)/`process_batch_result_decode`(:805)。混合物件跨文件行号易误导。
+- SUGGESTED_FIX: 改为 `batch_result_processor.py:193`（prefill）/`:805`（decode），或 `scheduler.py:3917` 仅标通用分发器。
+
+### 问题 6（SEVERITY=low TYPE=anchor_drift）
+- DETAIL: L200 写 `schedule_policy.py:1374`（`_update_prefill_budget`）。实测 `_update_prefill_budget` 定义在 :857，调用点约 **:1418**（doc 写 1374 为相邻预算更新处，行号偏移）。
+- SUGGESTED_FIX: `schedule_policy.py:1418`（调用点）或 :857（定义）。
+
+### 问题 7（SEVERITY=medium TYPE=missing_prefix）
+- DETAIL: 全部 mermaid 图内裸 `:Lxxx`（L62-263）缺 `python/sglang/srt/managers/` 或 `mem_cache/`、`model_executor/`、`scheduler_components/` 前缀。其中 `prepare_for_extend:2363`、`prepare_for_decode:3021`、`init_next_round_input:1297`、`set_extend_range:1270`、`filter_batch:2847`、`release_req:2897` 等符号实际在 `schedule_batch.py` 而非默认 `scheduler.py`；若读者按裸锚点默认落到 scheduler.py 即变符号不符。文末速查表（L285-297）已用全路径，图内应一致。
+- SUGGESTED_FIX: 图中每个裸锚点补全为完整相对 SSOT 路径。
+
+---
+
+## TOP8（最该优先修的 8 条）
+
+1. **directory-map.md：约 11 个"关键类"在 SSOT 中不存在**（I17）— 把 Program/Interpreter/HTTPServer/TokenToKVPoolAllocator/SpecInfo/DraftWorker/Constraint/MultimodalData/PrefillWorker/DecodeWorker/MetricsCollector 等虚构/错归类名列为地图核心，属全批最严重的事实性错误，整篇"关键类"列需重写。
+2. **directory-map.md：`models/deepseek_v3.py` 文件不存在**（I16）— 作为模型举例的文件名完全虚构，应改为 deepseek_v2.py / deepseek_v4.py。
+3. **overview.md：scheduler.py:917-986 把 `init_tp_model_worker` 误标为 `init_model_worker`**（I22）— 核心架构论断（"Scheduler 在 init_model_worker 内构造 TpModelWorker"）与源码不符，且 917 落在另一函数体内。
+4. **overview.md：detokenizer_manager.py:166-173 误标为 `handle_batch_token_id_out`**（I23）— 该区间实为 `event_loop`；同一区间在 L108 已正确用于 event_loop，符号标注自相矛盾。
+5. **overview.md：radix_cache.py:436-456 误标为 `cache_finished_req`**（I24）— 该区间为 `insert`；真实 `cache_finished_req` 在 :458。回写 radix 的关键论断锚点错。
+6. **sequence-diagrams.md：4 处越界/错文件锚点**（I36–I39）— `ScheduleBatch.init_new [:3386]`（实 :2184/__str__）、`model_runner.forward [:589/:609]`（实 :1510/:1771）、`maybe_cache_unfinished_req [:280]`（实 common.py:98）、`schedule_policy.py:3259-3260`（文件仅 1500 行越界）。时序图是本文主体，多处落空。
+7. **request-lifecycle.md：model_runner.py:3724-3737 `copy_to_cpu` 越界且符号不在该文件**（I25）— 文件仅 2112 行，且无此法；真实调用在 scheduler.py run_batch。核心数据流论断落空。
+8. **key-data-structures.md：`ModelRunner._forward_raw` 内含 `init_forward_metadata` 论断错误**（I27）— `_forward_raw`（:1654）不含该调用；真实调用在 :1495（forward/forward_split_prefill 路径）。架构性误述。
+
+> 备注：config-reference.md 的 2 处 mermaid 虚构函数（I13/I14）与 1 处错误函数名（I15）、glossary 的 scheduler.py:81 import 误用（I6）亦建议随 TOP8 一并修复；其余 low 级漂移/缺前缀问题可在统一复核中批量修正。
+
+
+【修复步骤（严格执行）】
+1) 用 Read 工具读完整篇 /home/kimmo/develop/sglangReading/docs/dataflow/sequence-diagrams.md。
+2) 对清单里每一条：
+   - 用 `grep -n "<符号>" /home/kimmo/develop/sglang/python/sglang/srt/<对应文件>` 找到该符号的真实定义行（若 SUGGESTED_FIX 已给正确锚点，仍要用 grep 复核行号是否真实）。
+   - 在文档里定位那条错误的锚点字符串（从 DETAIL 引用的错误锚点原文），用 Edit 工具替换为【已 grep 复核】的正确锚点或修订文本。
+   - 规则：
+     * 路径错误（如 engine.py 应为 scheduler.py）：改正路径与行号。
+     * 区间颠倒（如 986-917）：改为升序 917-986。
+     * 符号名不匹配（如 wait_for_ready 实为 _wait_for_scheduler_ready）：改正符号名，行号保留建议值并复核。
+     * 缺前缀的裸文件名（如 `server_args.py:L218`）：补成完整相对 SSOT 路径 `python/sglang/srt/server_args.py:L218`（若该模块确实在 srt 下；用 ls/grep 确认存在）。
+     * 占位/非精确锚点（如 `Lxxx+`）：用 grep 算出真实行号后替换。
+     * 深度问题（shallow）：在对应段落补充真实代码路径、行号锚点与具体权衡，删除无信息量空话；必须基于 SSOT 实测，不得编造。
+     * mermaid 虚构类名（mermaid_fake）：把图中不存在的类/函数名改为 SSOT 中真实存在的名称（先 grep `class <名>`/`def <名>` 确认）。
+3) 严禁新增/删除非必要内容；保持 mermaid 代码块完整、不引入新 TODO。
+4) 不运行 mkdocs build（本机沙箱会误报）；只保证事实准确。
+
+【验收（完成后）】
+- 报告你改了哪些地方（旧→新）到文件：/home/kimmo/develop/sglangReading/docs/../reports/fixR4_report_dataflow_sequence-diagrams.md.md
+- 再次 grep 复核：每条修正后的锚点行号处确为文中引用的符号。

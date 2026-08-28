@@ -1,0 +1,41 @@
+你是严苛的源码文档评阅人（资深 LLM 推理引擎架构师）。任务【只评审、不修改】，产出结构化报告。
+【唯一事实来源 SSOT】/home/kimmo/develop/sglang（commit e1c4db9621f7c4203ee9becd5d5456d4e6bf54f7）。所有判断必须 grep/Read 实测，严禁凭记忆。
+【评审对象】
+1. /home/kimmo/develop/sglangReading/docs/deep-dive/attention-backends.md
+2. /home/kimmo/develop/sglangReading/docs/deep-dive/constrained-decoding.md
+3. /home/kimmo/develop/sglangReading/docs/deep-dive/disaggregation.md
+4. /home/kimmo/develop/sglangReading/docs/deep-dive/frontend-language.md
+5. /home/kimmo/develop/sglangReading/docs/deep-dive/lora-multimodal.md
+6. /home/kimmo/develop/sglangReading/docs/deep-dive/memory-pool.md
+7. /home/kimmo/develop/sglangReading/docs/deep-dive/model-impl.md
+8. /home/kimmo/develop/sglangReading/docs/deep-dive/model-runner.md
+
+【评审重点（比第一轮更深入，机械校验只查了行号范围，你查符号与语义）】
+1) 符号级锚点准确性：对每个 `path:La-Lb` 锚点，
+   - 解析路径（缺 python/sglang/srt/ 前缀时按 python/sglang/srt/<path>；缺 python/sglang/ 时按 python/sglang/<path>；其余相对路径先试 SSOT 根、再试 srt/）。
+   - 找到文中该锚点**紧邻引用的符号**（class X / def X / self.x / X()）。
+   - 用 grep 核验：该符号的真实定义/出现行是否落在 [La,Lb] 内。
+   - 判定：OK / 漂移(差几行) / 伪造(文件中无此符号) / 占位(Lx/Lxxx+)。
+   - 特别注意：行号在文件范围内 ≠ 准确。例如 `sampler.py:88` 行号合法，但 88 行若不是文中说的 `sampler.py` 的那个类/函数（可能是另一个同名文件或 import 行），则仍算【符号不符】。
+2) 深度：每篇是否真回答 What/Why(动机与权衡)/How(关键代码路径)/坑？标出泛泛而谈、凑字数、无信息量段落（引用该段首句）。
+3) mermaid 真实性：图中 participant/node/class 名是否 SSOT 中真实存在的类/函数（grep `class <名>`/`def <名>` 验证），否则标【图类名虚构】。
+4) 缺前缀锚点（如 `scheduler.py:L120`、`metrics_collector.py:238`）：指出并建议补成完整相对 SSOT 路径（若文件确实在 srt 下）。
+【输出】只写文件：/home/kimmo/develop/sglangReading/docs/../reports/reviewR4_2.md（用 Write；勿改 docs/ 与 SSOT）。结构：
+# 评阅报告 R4-2
+## 总体结论（评分0-10 + 最严重问题一句）
+## 逐篇
+### <相对路径>
+- 评分: x/10
+- 锚点符号准确性: OK=N 漂移=M 伪造=P 占位=Q （估算，挑承重锚点 ≥10 个深核）
+- 深度问题: <引用>
+- mermaid问题: <引用>
+## ISSUES（###I 分隔）
+###I
+FILE: <相对路径>
+SEVERITY: high|medium|low
+TYPE: anchor_fake|anchor_drift|anchor_placeholder|symbol_mismatch|shallow|mermaid_fake|missing_prefix
+DETAIL: <错误锚点原文（含文中引用符号）+ 真实情况：该符号在 SSOT 的准确路径与行号>
+SUGGESTED_FIX: <正确锚点：相对 SSOT 的完整路径 + 真实 La-Lb>
+###I
+...
+## TOP8（最该优先修的8条）

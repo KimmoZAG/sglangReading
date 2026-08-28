@@ -1,0 +1,36 @@
+你是 SGLang 文档修复工程师。只改【一个】文档文件里的源码锚点/深度/mermaid 错误，不改动其它内容，不编造。
+
+【唯一事实来源 SSOT】/home/kimmo/develop/sglang（commit e1c4db9621f7c4203ee9becd5d5456d4e6bf54f7）。所有修正必须先用 grep/Read 在 SSOT 实测确认。
+
+【目标文件（绝对路径）】/home/kimmo/develop/sglangReading/docs/architecture/directory-map.md
+
+【本文件被评阅出的问题清单】
+
+### 问题 1（SEVERITY=high TYPE=anchor_fake）
+- DETAIL: 顶层表 L16 举例 "models/ 如 llama.py、deepseek_v3.py"。实测 `python/sglang/srt/models/` 不存在 `deepseek_v3.py`（仅有 deepseek_v2.py / deepseek_v4.py / deepseek_v4_nextn.py / deepseek_nextn.py / deepseek.py / deepseek_janus_pro.py / deepseek_ocr.py / deepseek_vl2.py / deepseek_common/ 等）。该文件名虚构。
+- SUGGESTED_FIX: 改为真实存在的 `deepseek_v2.py` 或 `deepseek_v4.py`。
+
+### 问题 2（SEVERITY=high TYPE=symbol_mismatch）
+- DETAIL: "关键类/入口"列列了 11 个 SSOT 中不存在或归属错误的类名：① `lang/` 的 `Program`/`Interpreter`（实测仅有 `SglFunction` ir.py:141、`StreamExecutor` interpreter.py:274、`ProgramState` :852）；② `http_server.py` 的 `HTTPServer`（无此类，文件函数式，`launch_server()` 在 entrypoints/http_server.py:2718）；③ `mem_cache/memory_pool.py` 的 `TokenToKVPoolAllocator`（实际类在 `mem_cache/allocator/token.py:28`）；④ `observability/` 的 `MetricsCollector`（实际 `SchedulerStats`/各 `MetricsCollector` 见 metrics_collector.py，无裸 `MetricsCollector`）；⑤ `speculative/` 的 `SpecInfo`/`DraftWorker`（实际 `SpecInput` spec_info.py:330、`BaseSpecWorker` :147、`EagleDraftWorkerBase` :57）；⑥ `constrained/` 的 `Constraint`（实际 `BaseGrammarObject` :52、`GrammarManager` :26）；⑦ `multimodal/` 的 `MultimodalData`（实际 `MultimodalDataItem` schedule_batch.py:317、`MultimodalInputs` :589）；⑧ `disaggregation/` 的 `PrefillWorker`/`DecodeWorker`（实际 `PrefillBootstrapQueue` prefill.py:119、`DecodeTransferQueue` decode.py:1795）；⑨ `launch_server.py` 的 `launch_server()`（该文件仅 `run_server()` :15）。
+- SUGGESTED_FIX: 逐条替换为 SSOT 真实类名并在括号标注真实文件路径；本篇为"地图"也应保证类名可被 grep 命中。
+
+
+【修复步骤（严格执行）】
+1) 用 Read 工具读完整篇 /home/kimmo/develop/sglangReading/docs/architecture/directory-map.md。
+2) 对清单里每一条：
+   - 用 `grep -n "<符号>" /home/kimmo/develop/sglang/python/sglang/srt/<对应文件>` 找到该符号的真实定义行（若 SUGGESTED_FIX 已给正确锚点，仍要用 grep 复核行号是否真实）。
+   - 在文档里定位那条错误的锚点字符串（从 DETAIL 引用的错误锚点原文），用 Edit 工具替换为【已 grep 复核】的正确锚点或修订文本。
+   - 规则：
+     * 路径错误（如 engine.py 应为 scheduler.py）：改正路径与行号。
+     * 区间颠倒（如 986-917）：改为升序 917-986。
+     * 符号名不匹配（如 wait_for_ready 实为 _wait_for_scheduler_ready）：改正符号名，行号保留建议值并复核。
+     * 缺前缀的裸文件名（如 `server_args.py:L218`）：补成完整相对 SSOT 路径 `python/sglang/srt/server_args.py:L218`（若该模块确实在 srt 下；用 ls/grep 确认存在）。
+     * 占位/非精确锚点（如 `Lxxx+`）：用 grep 算出真实行号后替换。
+     * 深度问题（shallow）：在对应段落补充真实代码路径、行号锚点与具体权衡，删除无信息量空话；必须基于 SSOT 实测，不得编造。
+     * mermaid 虚构类名（mermaid_fake）：把图中不存在的类/函数名改为 SSOT 中真实存在的名称（先 grep `class <名>`/`def <名>` 确认）。
+3) 严禁新增/删除非必要内容；保持 mermaid 代码块完整、不引入新 TODO。
+4) 不运行 mkdocs build（本机沙箱会误报）；只保证事实准确。
+
+【验收（完成后）】
+- 报告你改了哪些地方（旧→新）到文件：/home/kimmo/develop/sglangReading/docs/../reports/fixR4_report_architecture_directory-map.md.md
+- 再次 grep 复核：每条修正后的锚点行号处确为文中引用的符号。

@@ -1,0 +1,48 @@
+你是 SGLang 文档修复工程师。只改【一个】文档文件里的源码锚点/深度/mermaid 错误，不改动其它内容，不编造。
+
+【唯一事实来源 SSOT】/home/kimmo/develop/sglang（commit e1c4db9621f7c4203ee9becd5d5456d4e6bf54f7）。所有修正必须先用 grep/Read 在 SSOT 实测确认。
+
+【目标文件（绝对路径）】/home/kimmo/develop/sglangReading/docs/quickstart/install.md
+
+【本文件被评阅出的问题清单】
+
+### 问题 1（SEVERITY=high TYPE=anchor_fake）
+- DETAIL: 第 44 行锚点 `scripts/ci/cuda/ci_install_dependency.sh:L744-L756`，文中称是 `popen_launch_server` 构造的命令数组（`["sglang","serve",...]`）。实测：`ci_install_dependency.sh:744-756` 是 `install_test_tools()`（kernels 下载 + human-eval 克隆），**不含 `popen_launch_server`**。`popen_launch_server` 真实定义在 `python/sglang/test/test_utils.py:668`。
+- SUGGESTED_FIX: 改为 `python/sglang/test/test_utils.py:668`（或对应行），并确认 `popen_launch_server` 内 `command` 数组首项为 `["sglang","serve",...]`。
+
+### 问题 2（SEVERITY=high TYPE=anchor_fake）
+- DETAIL: 第 211 行锚点 `scripts/ci/cuda/ci_install_dependency.sh:L620-L665`，文中称是就绪判定 `_wait_for_server_health`（轮询 `/health_generate`）。实测：`ci_install_dependency.sh:620-629` 是 `download_flashinfer_cache()`，`631-680` 是 `stabilize_flashinfer_jit_paths()`，**无 `_wait_for_server_health`**。该符号真实位于 `python/sglang/test/test_utils.py:620`（且 minimal-example.md 第 211 行已正确引用 `test_utils.py:L620-L665`）。
+- SUGGESTED_FIX: 改为 `python/sglang/test/test_utils.py:620-L665`。
+
+### 问题 3（SEVERITY=high TYPE=anchor_fake）
+- DETAIL: 第 222 行锚点 `scripts/ci/cuda/ci_install_dependency.sh:L713-L716`，文中称是 `SGLANG_WAIT_PORT_TIMEOUT=120`。实测：`ci_install_dependency.sh:713-716` 是 `install_extra_deps` 的 nixl 块；**无 `WAIT_PORT_TIMEOUT`**。真实为 `python/sglang/test/test_utils.py:713-L716`，且变量名是 **`SGLANG_WAIT_PORT_TIMEOUT="120"`**（文中漏了 `SGLANG_` 前缀）。
+- SUGGESTED_FIX: 改为 `python/sglang/test/test_utils.py:713-L716`，并把正文变量名更正为 `SGLANG_WAIT_PORT_TIMEOUT`。
+
+### 问题 4（SEVERITY=medium TYPE=anchor_drift）
+- DETAIL: 第 214 行锚点 `python/pyproject.toml:L5-L14`，文中称含「包名、requires-python、**构建后端**」。实测：`build-backend="setuptools.build_meta"` 在 `L3`；L5 是 `[project]` 起始，L6 为 `name="sglang"`，L10 为 `requires-python=">=3.10"`，L5-L14 不含构建后端声明。
+- SUGGESTED_FIX: 改为 `python/pyproject.toml:L3-L14`（或拆成 `L3` 为 build-backend、`L5-L14` 为其余）。
+
+### 问题 5（SEVERITY=medium TYPE=symbol_mismatch）
+- DETAIL: 第 219 行锚点 `python/setup.py:L152-L174`，文中称是 `_declared_rust_extensions()`（含 `SGLANG_BUILD_RUST_EXTS=none` 短路）。实测：`setup.py:152-174` 是 **`_selected_rust_extensions(declared)`**（对 declared 列表做 none/all/逗号过滤）；真正的 `_declared_rust_extensions()` 在 `L177-L182`（含 `if ... =="none": return []`）。
+- SUGGESTED_FIX: 若为「过滤逻辑」用 `python/setup.py:L152-L174`；若为「=none 短路」用 `python/setup.py:L177-L182`。两处讲的不是同一个函数，需对应修正。
+
+
+【修复步骤（严格执行）】
+1) 用 Read 工具读完整篇 /home/kimmo/develop/sglangReading/docs/quickstart/install.md。
+2) 对清单里每一条：
+   - 用 `grep -n "<符号>" /home/kimmo/develop/sglang/python/sglang/srt/<对应文件>` 找到该符号的真实定义行（若 SUGGESTED_FIX 已给正确锚点，仍要用 grep 复核行号是否真实）。
+   - 在文档里定位那条错误的锚点字符串（从 DETAIL 引用的错误锚点原文），用 Edit 工具替换为【已 grep 复核】的正确锚点或修订文本。
+   - 规则：
+     * 路径错误（如 engine.py 应为 scheduler.py）：改正路径与行号。
+     * 区间颠倒（如 986-917）：改为升序 917-986。
+     * 符号名不匹配（如 wait_for_ready 实为 _wait_for_scheduler_ready）：改正符号名，行号保留建议值并复核。
+     * 缺前缀的裸文件名（如 `server_args.py:L218`）：补成完整相对 SSOT 路径 `python/sglang/srt/server_args.py:L218`（若该模块确实在 srt 下；用 ls/grep 确认存在）。
+     * 占位/非精确锚点（如 `Lxxx+`）：用 grep 算出真实行号后替换。
+     * 深度问题（shallow）：在对应段落补充真实代码路径、行号锚点与具体权衡，删除无信息量空话；必须基于 SSOT 实测，不得编造。
+     * mermaid 虚构类名（mermaid_fake）：把图中不存在的类/函数名改为 SSOT 中真实存在的名称（先 grep `class <名>`/`def <名>` 确认）。
+3) 严禁新增/删除非必要内容；保持 mermaid 代码块完整、不引入新 TODO。
+4) 不运行 mkdocs build（本机沙箱会误报）；只保证事实准确。
+
+【验收（完成后）】
+- 报告你改了哪些地方（旧→新）到文件：/home/kimmo/develop/sglangReading/docs/../reports/fixR4_report_quickstart_install.md.md
+- 再次 grep 复核：每条修正后的锚点行号处确为文中引用的符号。
